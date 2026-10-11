@@ -1,4 +1,4 @@
-<img src="docs/icon.png" width="96" alt="Shoji icon: a vermilion ensō brush circle around a small shoji window">
+<img center src="docs/icon.png" width="96" alt="Shoji icon: a vermilion ensō brush circle around a small shoji window">
 
 # Shoji 障子
 
