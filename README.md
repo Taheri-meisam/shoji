@@ -2,7 +2,7 @@
   <img src="docs/icon.png" width="96" alt="Shoji icon: a vermilion ensō brush circle around a small shoji window">
 </p>
 <p align="center">
-# Shoji 障子
+#Shoji 障子
 </p>
 *Your second screen, panel by panel.*
 
