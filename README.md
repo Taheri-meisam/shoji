@@ -348,9 +348,10 @@ Start with Windows keeps working even after you delete the download.
 *Start with Windows* yourself. A file called `portable` next to the exe is what makes it portable; delete it to switch
 back. If you move the folder, autostart is pointed at the new location the next time you start it.
 
-- **Automatic updates**: set Settings → About & install → *Update source* to `owner/repo` (GitHub releases) or the
-  link of a `latest.json`. Shoji checks every 12 hours, tells you once per version, and installs only when you tap
-  *Install*, after checking the download's SHA-256. Releasing: `scripts/build-deb.sh`, then
+- **Automatic updates**: Shoji checks [the GitHub releases](https://github.com/Taheri-meisam/Shoji/releases) every
+  12 hours, tells you once per version, and installs only when you tap *Install*, after checking the download's SHA-256.
+  Settings → About & install → *Check for updates* turns this off; *Update source* points it at another `owner/repo`
+  or the link of a `latest.json` (for your own builds). Releasing: `scripts/build-deb.sh`, then
   `scripts/make-release.sh OWNER/REPO --notes notes.md --packages`, then run the `gh release create` command it prints.
 - **winget / Scoop**: manifests are in `packaging/winget` and `packaging/scoop` (filled in by `make-release.sh --packages`).
   Silent install for scripts: `Shoji-Setup.exe --install --quiet`.

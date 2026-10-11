@@ -18,8 +18,13 @@ public sealed class UpdatesConfig
     /// <summary>Look for a new version in the background (at most every 12 hours). It is never installed without a tap.</summary>
     public bool Check { get; set; } = true;
 
-    /// <summary>A GitHub repository ("owner/repo"), or the https link of a manifest (the latest.json that scripts/make-release.sh writes).</summary>
-    public string? Feed { get; set; }
+    /// <summary>
+    /// A GitHub repository ("owner/repo"), or the https link of a manifest (the latest.json that scripts/make-release.sh writes).
+    /// Defaults to the official repository; a cleared box comes back as the default (nulls aren't saved), so "Check" turns checking off.
+    /// </summary>
+    public string? Feed { get; set; } = DefaultFeed;
+
+    public const string DefaultFeed = "Taheri-meisam/Shoji";
 
     /// <summary>"Skip this version": no toast or tray item for it ("Check now" still shows it).</summary>
     public string? Skipped { get; set; }
