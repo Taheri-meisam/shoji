@@ -17,7 +17,7 @@
     <Description>Dashboard and control deck for a second screen</Description>
     <Authors>Meisam Taheri</Authors>
     <Copyright>© 2026 Meisam Taheri · MIT License</Copyright>
-    <Version>1.15.1</Version>
+    <Version>1.15.2</Version>
     <DefineConstants>$(DefineConstants);SHOJI_LINUX</DefineConstants>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <ApplicationIcon>Assets/app.ico</ApplicationIcon>
