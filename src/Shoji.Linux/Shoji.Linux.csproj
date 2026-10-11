@@ -15,6 +15,8 @@
     <AssemblyName>shoji</AssemblyName>
     <Product>Shoji</Product>
     <Description>Dashboard and control deck for a second screen</Description>
+    <Authors>Meisam Taheri</Authors>
+    <Copyright>© 2026 Meisam Taheri · MIT License</Copyright>
     <Version>1.15.0</Version>
     <DefineConstants>$(DefineConstants);SHOJI_LINUX</DefineConstants>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>

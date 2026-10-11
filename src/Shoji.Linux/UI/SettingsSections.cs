@@ -688,6 +688,12 @@ public sealed partial class SettingsWindow
                 name,
                 new TextBlock { Text = L.F("Version {0} for Linux · a dashboard and touch deck for your small screen", AppPaths.VersionText), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0), Foreground = Look.Text2 },
                 new TextBlock { Text = L.T("A shoji is the paper screen of a Japanese house: light comes through it, softly."), FontStyle = FontStyle.Italic, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0), Foreground = Look.Text3 },
+                new TextBlock { Text = L.F("Made by {0} · free and open source (MIT License)", AppPaths.Author), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 0), Foreground = Look.Text2 },
+                new WrapPanel
+                {
+                    Margin = new Thickness(0, 10, 0, -6),
+                    Children = { Button("Source code", () => App.Open(AppPaths.Website)), Button("Report a problem", () => App.Open(AppPaths.IssuesUrl)) },
+                },
             },
         };
         var head = new DockPanel();

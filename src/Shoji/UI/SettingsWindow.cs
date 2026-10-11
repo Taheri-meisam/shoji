@@ -2167,6 +2167,12 @@ public sealed partial class SettingsWindow : Window
                 name,
                 Ref(new TextBlock { Text = L.F("Version {0} · a dashboard and touch deck for your small screen", AppPaths.VersionText), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) }, TextBlock.ForegroundProperty, TextSecondary),
                 Ref(new TextBlock { Text = L.T("A shoji is the paper screen of a Japanese house: light comes through it, softly."), FontStyle = FontStyles.Italic, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) }, TextBlock.ForegroundProperty, TextTertiary),
+                Ref(new TextBlock { Text = L.F("Made by {0} · free and open source (MIT License)", AppPaths.Author), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 0) }, TextBlock.ForegroundProperty, TextSecondary),
+                new WrapPanel
+                {
+                    Margin = new Thickness(0, 10, 0, -6),
+                    Children = { Button(L.T("Source code"), () => Shell(AppPaths.Website, null)), Button(L.T("Report a problem"), () => Shell(AppPaths.IssuesUrl, null)) },
+                },
             },
         };
         var head = new DockPanel();

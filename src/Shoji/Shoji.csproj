@@ -14,6 +14,8 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
     <Product>Shoji</Product>
     <Company>Shoji</Company>
+    <Authors>Meisam Taheri</Authors>
+    <Copyright>© 2026 Meisam Taheri · MIT License</Copyright>
     <Description>Dashboard and control deck for a second screen</Description>
     <AssemblyName>Shoji</AssemblyName>
     <RootNamespace>Shoji</RootNamespace>

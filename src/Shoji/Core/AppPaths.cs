@@ -38,6 +38,11 @@ public static class AppPaths
 
     public static string VersionText => $"{Version.Major}.{Version.Minor}.{Version.Build}";
 
+    /// <summary>Who made Shoji and where it lives (About & install).</summary>
+    public const string Author = "Meisam Taheri";
+    public const string Website = "https://github.com/Taheri-meisam/shoji";
+    public const string IssuesUrl = Website + "/issues";
+
     public static bool SamePath(string? a, string? b)
     {
         if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
