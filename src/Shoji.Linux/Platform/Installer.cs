@@ -27,6 +27,7 @@ public static class Installer
             using (var src = typeof(Installer).Assembly.GetManifestResourceStream("shoji.png") ?? throw new FileNotFoundException("The icon resource is missing"))
             using (var dst = File.Create(IconFile))
                 src.CopyTo(dst);
+            IconsChanged();
             Directory.CreateDirectory(Path.GetDirectoryName(DesktopFile)!);
             File.WriteAllText(DesktopFile, $"""
                 [Desktop Entry]
@@ -58,10 +59,27 @@ public static class Installer
         {
             File.Delete(DesktopFile);
             File.Delete(IconFile);
+            IconsChanged();
         }
         catch (Exception ex)
         {
             Log.Write($"Removing from the app menu failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Icon themes only rescan when the theme folder itself (hicolor) changes, not the 256x256/apps folder under it, so
+    /// GNOME's app grid kept a gear for Shoji until the next login. Touching hicolor is what icon installers do.
+    /// </summary>
+    static void IconsChanged()
+    {
+        try
+        {
+            Directory.SetLastWriteTimeUtc(Path.Combine(Share, "icons", "hicolor"), DateTime.UtcNow);
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"Could not refresh the icon theme: {ex.Message}");
         }
     }
 }
