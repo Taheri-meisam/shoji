@@ -4,6 +4,8 @@
 
 *Your second screen, panel by panel.*
 
+<img src="docs/screenshots/hero-futuristic.png" alt="Shoji on a 1280×480 screen with the Futuristic theme: clock, CPU and GPU gauges, memory, power, network and status lamps" width="100%">
+
 Shoji are the Japanese sliding screens made of paper panels in a wooden frame. This Shoji is a dashboard and touch
 control panel for a small secondary screen on Windows 10/11. It starts with Windows, puts itself on the small monitor
 full-screen, and shows live PC information in modular tiles, on as many pages as you like. **Scenes** switch pages by
@@ -32,6 +34,75 @@ Get the latest version from the [Releases page](https://github.com/Taheri-meisam
 Windows may say *"Windows protected your PC"* the first time because the exe isn't code-signed: click
 **More info → Run anyway**. Each release lists SHA-256 checksums in `SHA256SUMS`. Details:
 [Install or portable](#install-or-portable), [Linux](#linux-ubuntu).
+
+## Screenshots
+
+All pictures are 1280×480 (a common bar-shaped touch screen) with made-up demo data; the Windows and Linux apps look the same.
+
+### Pages
+
+Swipe between pages, or let scenes switch them for you (a game starts → Gaming).
+
+**Main**: clock with weather, CPU, GPU, memory, power, network and the status lamps (Midnight)
+
+<img src="docs/screenshots/page-main.png" alt="Shoji Main page" width="100%">
+
+**Gaming**: FPS speedometer, CPU and GPU gauges, temperature tapes, ping, process radar, last session (Hypercar)
+
+<img src="docs/screenshots/page-gaming.png" alt="Shoji Gaming page" width="100%">
+
+**Deck**: touch buttons, per-app volume, focus timer, fans, battery and drives (Aurora)
+
+<img src="docs/screenshots/page-deck.png" alt="Shoji Deck page" width="100%">
+
+**Media and more**: now playing, notifications, web values, photo frame (Tokyo Neon)
+
+<img src="docs/screenshots/page-media.png" alt="Shoji Media and more page" width="100%">
+
+**Ambient**: big clock, weather, hourly forecast, calendar, agenda, world clock (Kanagawa)
+
+<img src="docs/screenshots/page-ambient.png" alt="Shoji Ambient page" width="100%">
+
+### Themes
+
+16 of the 28 themes, all showing the same Main page:
+
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-midnight.png" alt="Midnight theme"><br><b>Midnight</b></td>
+<td align="center"><img src="docs/screenshots/theme-futuristic.png" alt="Futuristic theme"><br><b>Futuristic</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-cyberpunk.png" alt="Cyberpunk theme"><br><b>Cyberpunk</b></td>
+<td align="center"><img src="docs/screenshots/theme-tokyo.png" alt="Tokyo Neon theme"><br><b>Tokyo Neon</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-sumi.png" alt="Sumi-e theme"><br><b>Sumi-e</b></td>
+<td align="center"><img src="docs/screenshots/theme-sakura.png" alt="Sakura theme"><br><b>Sakura</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-cassette.png" alt="Cassette theme"><br><b>Cassette</b></td>
+<td align="center"><img src="docs/screenshots/theme-hypercar.png" alt="Hypercar theme"><br><b>Hypercar</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-aurora.png" alt="Aurora theme"><br><b>Aurora</b></td>
+<td align="center"><img src="docs/screenshots/theme-blueprint.png" alt="Blueprint theme"><br><b>Blueprint</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-terminal.png" alt="Terminal theme"><br><b>Terminal</b></td>
+<td align="center"><img src="docs/screenshots/theme-glass.png" alt="Glass theme"><br><b>Glass</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-notebook.png" alt="Notebook theme"><br><b>Notebook</b></td>
+<td align="center"><img src="docs/screenshots/theme-matcha.png" alt="Matcha theme"><br><b>Matcha</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-sunset.png" alt="Lo-fi Sunset theme"><br><b>Lo-fi Sunset</b></td>
+<td align="center"><img src="docs/screenshots/theme-dracula.png" alt="Dracula theme"><br><b>Dracula</b></td>
+</tr>
+</table>
+
+## What's on the screen
 
 ### Tiles
 
