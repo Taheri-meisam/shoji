@@ -1,10 +1,8 @@
 <p align="center">
   <img src="docs/icon.png" width="96" alt="Shoji icon: a vermilion ensō brush circle around a small shoji window">
 </p>
-<p align="center">
-#Shoji 障子
-</p>
-*Your second screen, panel by panel.*
+<h1 align="center">Shoji 障子</h1>
+<p align="center"><em>Your second screen, panel by panel.</em></p>
 
 <img src="docs/screenshots/hero-futuristic.png" alt="Shoji on a 1280×480 screen with the Futuristic theme: clock, CPU and GPU gauges, memory, power, network and status lamps" width="100%">
 
