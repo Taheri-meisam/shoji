@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- Windows 10 SDK target gives us WinRT access (media session info). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <Product>Shoji</Product>
+    <Company>Shoji</Company>
+    <Description>Dashboard and control deck for a second screen</Description>
+    <AssemblyName>Shoji</AssemblyName>
+    <RootNamespace>Shoji</RootNamespace>
+    <Version>1.15.0</Version>
+    <!-- Lets the project build on Linux/macOS too (CI); it still only runs on Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- WFAC010 / WFO0003 are WinForms hints; this is a WPF app, which reads DPI awareness from app.manifest. -->
+    <NoWarn>$(NoWarn);WFAC010;WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="app.ico" LogicalName="Shoji.app.ico" />
+    <!-- Translations ("English": "translation"), loaded by Core/L.cs. -->
+    <EmbeddedResource Include="Lang\*.json" LogicalName="Lang/%(Filename)%(Extension)" />
+    <!-- Bundled fonts (SIL Open Font License, see Fonts/OFL-*.txt), used by themes as "./Fonts/#Name". -->
+    <Resource Include="Fonts\*.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ical.Net" Version="4.3.1" />
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.1.13" />
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
+</Project>

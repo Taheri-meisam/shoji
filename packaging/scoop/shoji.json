@@ -1,0 +1,35 @@
+{
+    "version": "<version>",
+    "description": "Dashboard and control deck for a small second screen.",
+    "homepage": "https://github.com/OWNER/REPO",
+    "license": "MIT",
+    "notes": "Settings are kept in Scoop's persist folder; update with \"scoop update shoji\".",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/OWNER/REPO/releases/download/v<version>/Shoji-portable.zip",
+            "hash": "<sha256-portable>"
+        }
+    },
+    "extract_dir": "Shoji",
+    "bin": "Shoji.exe",
+    "shortcuts": [
+        [
+            "Shoji.exe",
+            "Shoji"
+        ]
+    ],
+    "persist": "data",
+    "checkver": {
+        "github": "https://github.com/OWNER/REPO"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/OWNER/REPO/releases/download/v$version/Shoji-portable.zip"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/SHA256SUMS"
+        }
+    }
+}

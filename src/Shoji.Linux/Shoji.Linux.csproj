@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shoji for Linux (Ubuntu and other desktops): the same dashboard, built with Avalonia instead of WPF.
+    Settings, pages, scenes, themes, weather, websites, integrations and the phone dashboard are the Windows
+    code itself (linked below); sensors, media, audio and the UI are Linux / Avalonia versions.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Shoji</RootNamespace>
+    <AssemblyName>shoji</AssemblyName>
+    <Product>Shoji</Product>
+    <Description>Dashboard and control deck for a second screen</Description>
+    <Version>1.15.0</Version>
+    <DefineConstants>$(DefineConstants);SHOJI_LINUX</DefineConstants>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Headless" Version="11.3.22" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+    <PackageReference Include="Ical.Net" Version="4.3.1" />
+  </ItemGroup>
+
+  <!-- Shared with the Windows app: these files compile unchanged on both (Windows-only bits are behind #if SHOJI_LINUX). -->
+  <ItemGroup>
+    <Compile Include="../Shoji/Core/AppConfig.cs" Link="Shared/AppConfig.cs" />
+    <Compile Include="../Shoji/Core/AppPaths.cs" Link="Shared/AppPaths.cs" />
+    <Compile Include="../Shoji/Core/Log.cs" Link="Shared/Log.cs" />
+    <Compile Include="../Shoji/Core/UpdateChecker.cs" Link="Shared/UpdateChecker.cs" />
+    <Compile Include="../Shoji/Core/ModuleCatalog.cs" Link="Shared/ModuleCatalog.cs" />
+    <Compile Include="../Shoji/Core/SceneEngine.cs" Link="Shared/SceneEngine.cs" />
+    <Compile Include="../Shoji/Core/WebServer.cs" Link="Shared/WebServer.cs" />
+    <Compile Include="../Shoji/Core/DeckIcons.cs" Link="Shared/DeckIcons.cs" />
+    <Compile Include="../Shoji/Core/L.cs" Link="Shared/L.cs" />
+    <Compile Include="../Shoji/Core/ObsClient.cs" Link="Shared/ObsClient.cs" />
+    <Compile Include="../Shoji/Sensors/Snapshot.cs" Link="Shared/Snapshot.cs" />
+    <Compile Include="../Shoji/Sensors/HistoryStore.cs" Link="Shared/HistoryStore.cs" />
+    <Compile Include="../Shoji/Sensors/Integrations.cs" Link="Shared/Integrations.cs" />
+    <Compile Include="../Shoji/Sensors/Calendars.cs" Link="Shared/Calendars.cs" />
+    <Compile Include="../Shoji/Sensors/WebValue.cs" Link="Shared/WebValue.cs" />
+    <Compile Include="../Shoji/Sensors/PingMonitor.cs" Link="Shared/PingMonitor.cs" />
+    <Compile Include="../Shoji/Sensors/PowerMeter.cs" Link="Shared/PowerMeter.cs" />
+    <Compile Include="../Shoji/Sensors/RecapTracker.cs" Link="Shared/RecapTracker.cs" />
+    <Compile Include="../Shoji/Sensors/ServiceStore.cs" Link="Shared/ServiceStore.cs" />
+    <Compile Include="../Shoji/Sensors/WebsiteMonitor.cs" Link="Shared/WebsiteMonitor.cs" />
+    <Compile Include="../Shoji/Sensors/WeatherService.cs" Link="Shared/WeatherService.cs" />
+    <Compile Include="../Shoji/Sensors/Notifications.cs" Link="Shared/Notifications.cs" />
+    <Compile Include="../Shoji/UI/Themes.cs" Link="Shared/Themes.cs" />
+    <Compile Include="../Shoji/UI/TileLayout.cs" Link="Shared/TileLayout.cs" />
+    <Compile Include="../Shoji/UI/BackdropArt.cs" Link="Shared/BackdropArt.cs" />
+    <Compile Include="../Shoji/Core/LayoutShare.cs" Link="Shared/LayoutShare.cs" />
+    <Compile Include="../Shoji/Sensors/PhotoLibrary.cs" Link="Shared/PhotoLibrary.cs" />
+    <Compile Include="../Shoji/UI/AlbumArt.cs" Link="Shared/AlbumArt.cs" />
+  </ItemGroup>
+
+  <!-- Fonts: the themes' bundled fonts (shared) plus Material Icons for the icons (Segoe Fluent Icons is Windows-only). -->
+  <ItemGroup>
+    <AvaloniaResource Include="../Shoji/Fonts/*.ttf" Link="Assets/Fonts/%(Filename)%(Extension)" />
+    <AvaloniaResource Include="Assets/Fonts/MaterialIcons-Regular.ttf" />
+    <AvaloniaResource Include="Assets/shoji.png" />
+    <!-- Also as a plain resource: the install command runs without Avalonia set up, so it cannot use AssetLoader. -->
+    <EmbeddedResource Include="Assets/shoji.png" LogicalName="shoji.png" />
+    <!-- Translations: the shared file (also used on Windows) plus Linux-only text. -->
+    <EmbeddedResource Include="../Shoji/Lang/*.json" LogicalName="Lang/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Lang/*.json" LogicalName="Lang/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

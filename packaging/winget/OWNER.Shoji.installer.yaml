@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+# Shoji-Setup.exe installs per user (%LOCALAPPDATA%\Programs\Shoji, no admin). "--install --quiet" shows no
+# dialogs and exits with 0 on success; it updates a running copy in place and starts it again.
+PackageIdentifier: OWNER.Shoji
+PackageVersion: <version>
+InstallerType: exe
+Scope: user
+InstallModes:
+  - silent
+  - silentWithProgress
+InstallerSwitches:
+  Silent: --install --quiet
+  SilentWithProgress: --install --quiet
+UpgradeBehavior: install
+ReleaseDate: <date>
+AppsAndFeaturesEntries:
+  - DisplayName: Shoji
+    Publisher: Shoji
+    ProductCode: Shoji
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/OWNER/REPO/releases/download/v<version>/Shoji-Setup.exe
+    InstallerSha256: <sha256-setup>
+ManifestType: installer
+ManifestVersion: 1.6.0

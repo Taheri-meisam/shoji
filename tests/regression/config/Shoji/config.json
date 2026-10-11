@@ -1,0 +1,372 @@
+{
+  "Monitor": "auto",
+  "RefreshMs": 1000,
+  "Scale": 1.0,
+  "Columns": 0,
+  "Topmost": false,
+  "PixelShift": false,
+  "Use24HourClock": true,
+  "Theme": "midnight",
+  "TemperatureUnit": "C",
+  "TempWarn": 70,
+  "TempCrit": 85,
+  "GpuIndex": 0,
+  "Animations": false,
+  "AlbumArtBackdrop": false,
+  "City": "Oslo",
+  "Language": "en",
+  "LayoutVersion": 2,
+  "Pages": [
+    {
+      "Name": "Main",
+      "Columns": 0,
+      "Modules": [
+        {
+          "Type": "clock",
+          "Enabled": true,
+          "Span": 2
+        },
+        {
+          "Type": "cpu",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "gpu",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "memory",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "power",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "network",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "status",
+          "Enabled": true,
+          "Span": 1
+        }
+      ]
+    },
+    {
+      "Name": "Gaming",
+      "Columns": 0,
+      "Modules": [
+        {
+          "Type": "fps",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Style": "speedometer"
+          }
+        },
+        {
+          "Type": "cpu",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Style": "led"
+          }
+        },
+        {
+          "Type": "gpu",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Style": "classic"
+          }
+        },
+        {
+          "Type": "temps",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Style": "tapes"
+          }
+        },
+        {
+          "Type": "ping",
+          "Enabled": true,
+          "Span": 1,
+          "Host": "1.1.1.1",
+          "Options": {
+            "Style": "scope"
+          }
+        },
+        {
+          "Type": "processes",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Style": "radar"
+          }
+        },
+        {
+          "Type": "recap",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "history",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Series": "cpu.temp, gpu.temp, fps",
+            "Hours": "6"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "Deck",
+      "Columns": 0,
+      "Modules": [
+        {
+          "Type": "deck",
+          "Enabled": true,
+          "Span": 2,
+          "Buttons": [
+            {
+              "Icon": "play",
+              "Label": "Play",
+              "Action": "media",
+              "Target": "playpause"
+            },
+            {
+              "Icon": "next",
+              "Label": "Next",
+              "Action": "media",
+              "Target": "next"
+            },
+            {
+              "Icon": "mute",
+              "Label": "Mute",
+              "Action": "mute"
+            },
+            {
+              "Icon": "mic",
+              "Label": "Mic",
+              "Action": "mic"
+            },
+            {
+              "Icon": "web",
+              "Label": "Docs",
+              "Action": "url",
+              "Target": "https://example.com"
+            },
+            {
+              "Icon": "terminal",
+              "Label": "Terminal",
+              "Action": "launch",
+              "Target": "gnome-terminal"
+            },
+            {
+              "Icon": "theme",
+              "Label": "Theme",
+              "Action": "theme"
+            },
+            {
+              "Icon": "pages",
+              "Label": "Pages",
+              "Action": "page"
+            }
+          ]
+        },
+        {
+          "Type": "mixer",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "timer",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Focus": "25",
+            "Break": "5",
+            "Style": "classic"
+          }
+        },
+        {
+          "Type": "fans",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "sensors",
+          "Enabled": true,
+          "Span": 1,
+          "Sensors": [
+            {
+              "Id": "hwmon/nct6798/fan1",
+              "Label": "CPU fan"
+            },
+            {
+              "Id": "hwmon/nct6798/in0",
+              "Label": "Vcore"
+            },
+            {
+              "Id": "hwmon/nvme/temp1",
+              "Label": "NVMe"
+            }
+          ]
+        },
+        {
+          "Type": "battery",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Style": "arc"
+          }
+        },
+        {
+          "Type": "disks",
+          "Enabled": true,
+          "Span": 1
+        }
+      ]
+    },
+    {
+      "Name": "Media",
+      "Columns": 0,
+      "Modules": [
+        {
+          "Type": "media",
+          "Enabled": true,
+          "Span": 2,
+          "Options": {
+            "Large": "true"
+          }
+        },
+        {
+          "Type": "notifications",
+          "Enabled": true,
+          "Span": 2
+        },
+        {
+          "Type": "webvalue",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Url": "https://demo.shoji.invalid/value.json",
+            "Field": "visitors",
+            "Label": "Visitors today",
+            "Every": "60"
+          }
+        },
+        {
+          "Type": "webvalue",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Url": "https://demo.shoji.invalid/value.json",
+            "Field": "outside.temp",
+            "Label": "Outside",
+            "Unit": "°C",
+            "Max": "40",
+            "Every": "60",
+            "Style": "arc"
+          }
+        },
+        {
+          "Type": "photos",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Folder": "{{PHOTOS}}",
+            "Caption": "name",
+            "Every": "600"
+          }
+        },
+        {
+          "Type": "overview",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Style": "orbit"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "Ambient",
+      "Columns": 0,
+      "Modules": [
+        {
+          "Type": "clock",
+          "Enabled": true,
+          "Span": 2,
+          "Options": {
+            "Style": "segments"
+          }
+        },
+        {
+          "Type": "weather",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "forecast",
+          "Enabled": true,
+          "Span": 2,
+          "Options": {
+            "Hours": "12"
+          }
+        },
+        {
+          "Type": "calendar",
+          "Enabled": true,
+          "Span": 1
+        },
+        {
+          "Type": "agenda",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Days": "3"
+          }
+        },
+        {
+          "Type": "worldclock",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Zones": "Asia/Tokyo=Tokyo; America/New_York=New York; Europe/London=London"
+          }
+        }
+      ]
+    }
+  ],
+  "PageCycleSeconds": 0,
+  "ScenesEnabled": false,
+  "Scenes": [],
+  "DayNight": {
+    "Enabled": false
+  },
+  "Alerts": {
+    "Enabled": false,
+    "Sound": false
+  },
+  "Web": {
+    "Enabled": false
+  },
+  "Night": {
+    "Enabled": false
+  },
+  "Calendars": [
+    {
+      "Url": "https://demo.shoji.invalid/calendar.ics",
+      "Name": "Demo"
+    }
+  ]
+}
