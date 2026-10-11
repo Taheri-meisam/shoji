@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 # Shoji-Setup.exe installs per user (%LOCALAPPDATA%\Programs\Shoji, no admin). "--install --quiet" shows no
 # dialogs and exits with 0 on success; it updates a running copy in place and starts it again.
 PackageIdentifier: OWNER.Shoji
@@ -22,4 +22,4 @@ Installers:
     InstallerUrl: https://github.com/OWNER/REPO/releases/download/v<version>/Shoji-Setup.exe
     InstallerSha256: <sha256-setup>
 ManifestType: installer
-ManifestVersion: 1.6.0
+ManifestVersion: 1.12.0
