@@ -69,10 +69,23 @@ public static class W
         value.HorizontalAlignment = HorizontalAlignment.Right;
         value.Margin = new Thickness(8, 0, 0, 0);
         Grid.SetColumn(value, 1);
+        HideWhenCut(labelText);
         g.Children.Add(labelText);
         g.Children.Add(value);
         return g;
     }
+
+    /// <summary>
+    /// Hides a label that the space cuts down to a stub ("S…" says nothing); one that keeps most of its text stays.
+    /// Opacity only, so the layout doesn't change.
+    /// </summary>
+    public static void HideWhenCut(TextBlock t) => t.SizeChanged += (_, e) =>
+    {
+        var full = new FormattedText(t.Text ?? "", System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface(t.FontFamily, t.FontStyle, t.FontWeight, t.FontStretch), t.FontSize, Brushes.Black,
+            VisualTreeHelper.GetDpi(t).PixelsPerDip).Width;
+        t.Opacity = e.NewSize.Width + 1 >= full * 0.6 ? 1 : 0;
+    };
 
     /// <summary>Lays children out in equal-width columns.</summary>
     public static UniformGrid Columns(params UIElement[] children)

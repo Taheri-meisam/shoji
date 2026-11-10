@@ -422,11 +422,15 @@ public sealed class TaskManagerModule : Module
     void Show(ProcessMetric m)
     {
         _gauge.Metric = m;
+        // Ink for the lit pill: dark or white, whichever reads better on the accent (a translucent or light tile colour,
+        // as in Glass or Blueprint, would vanish).
+        var ink = Color.FromRgb(0x12, 0x14, 0x1A);
+        var onAccent = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(UI.Theme.Contrast(UI.Theme.AccentColor, ink) >= UI.Theme.Contrast(UI.Theme.AccentColor, Colors.White) ? ink : Colors.White);
         foreach (var (metric, pill, text) in _chips)
         {
             bool on = metric == m;
             pill.Background = on ? UI.Theme.Accent : Brushes.Transparent;
-            text.Foreground = on ? UI.Theme.Tile : UI.Theme.Dim;
+            text.Foreground = on ? onAccent : UI.Theme.Dim;
             text.FontWeight = on ? FontWeight.SemiBold : FontWeight.Normal;
         }
     }

@@ -917,12 +917,26 @@ public sealed class Annunciator : Gauge
         var dark = Alpha(Brushes.Black, 0x80);
         var off = ((ISolidColorBrush)UI.Theme.Background).Color.R > 0x90 ? Alpha(Brushes.Black, 0x10) : Alpha(Brushes.White, 0x08);
 
-        double bh = Math.Max(20, Math.Min(34, h * 0.15)), bw = (w - 10) / 2;
+        double bh = Math.Max(22, Math.Min(36, h * 0.16)), bw = (w - 10) / 2;
         Master(dc, new Rect(0, 0, bw, bh), "MASTER WARN", warn && blinkOn, P.Crit, off);
         Master(dc, new Rect(bw + 10, 0, bw, bh), "MASTER CAUTION", caution && blinkOn, P.Warn, off);
 
-        int cols = w > h * 1.6 ? 4 : 2, rows = (int)Math.Ceiling(_lamps.Count / (double)cols);
-        double top = bh + 8, lw = (w - (cols - 1) * 8) / cols, lh = (h - top - (rows - 1) * 6) / rows;
+        // The grid with the biggest readable labels wins (fewer empty cells breaks a tie), so 9 lamps on a wide
+        // tile become 3 x 3 or 5 + 4 instead of 4 + 4 + one orphan with tiny text.
+        double top = bh + 8;
+        int longest = Math.Max(4, _lamps.Max(l => l.Label.Length));
+        int cols = 2;
+        double best = -1;
+        for (int c = 2; c <= Math.Min(5, _lamps.Count); c++)
+        {
+            int rr = (int)Math.Ceiling(_lamps.Count / (double)c);
+            double cw = (w - (c - 1) * 8) / c, ch = (h - top - (rr - 1) * 6) / rr;
+            double size = Math.Min(Math.Min(ch * 0.42, cw / (longest * 0.72)), 22) - (rr * c - _lamps.Count) * 0.05;
+            if (ch >= 14 && size > best) { best = size; cols = c; }
+        }
+        int rows = (int)Math.Ceiling(_lamps.Count / (double)cols);
+        double lw = (w - (cols - 1) * 8) / cols, lh = (h - top - (rows - 1) * 6) / rows;
+        double font = Math.Max(9, Math.Min(Math.Min(lh * 0.42, lw / (longest * 0.72)), 22));
         for (int i = 0; i < _lamps.Count; i++)
         {
             var (label, state) = _lamps[i];
@@ -937,7 +951,7 @@ public sealed class Annunciator : Gauge
             {
                 dc.DrawRectangle(off, MakePen(P.Track, 1), r, 2, 2);
             }
-            Text(dc, label, r.X + r.Width / 2, r.Y + r.Height / 2, Math.Max(9, Math.Min(r.Height * 0.38, r.Width * 0.13)),
+            Text(dc, label, r.X + r.Width / 2, r.Y + r.Height / 2, font,
                  state > 0 ? dark : P.Dim, P.Display, weight: FontWeight.SemiBold);
         }
     }
@@ -946,7 +960,7 @@ public sealed class Annunciator : Gauge
     {
         if (lit && P.Glow) dc.DrawRectangle(Alpha(col, 0x40), null, new Rect(r.X - 3, r.Y - 3, r.Width + 6, r.Height + 6), 5, 5);
         dc.DrawRectangle(lit ? col : off, MakePen(lit ? col : P.Track, 1), r, 3, 3);
-        Text(dc, label, r.X + r.Width / 2, r.Y + r.Height / 2, Math.Max(9, Math.Min(r.Height * 0.4, r.Width * 0.09)),
+        Text(dc, label, r.X + r.Width / 2, r.Y + r.Height / 2, Math.Max(9, Math.Min(r.Height * 0.44, r.Width / (label.Length * 0.68))),
              lit ? Alpha(Brushes.Black, 0x90) : P.Dim, P.Display, weight: FontWeight.SemiBold);
     }
 }

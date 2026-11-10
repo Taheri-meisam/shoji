@@ -448,6 +448,7 @@
   "Hides the taskbar on the dashboard's screen so it fills it completely (your main taskbar stays)": "Skjuler oppgavelinjen på dashbordets skjerm så det fyller hele (oppgavelinjen på hovedskjermen blir)",
   "High ping: {0:0} ms": "Høy ping: {0:0} ms",
   "History": "Historikk",
+  "History fills in over {0} s": "Historikken fylles inn over {0} s",
   "Hold a tile to edit it on the dashboard": "Hold på en flis for å redigere den på dashbordet",
   "Holographic HUD, corner brackets, segmented meters": "Holografisk HUD, hjørneklammer, segmenterte målere",
   "Home": "Hjem",

@@ -480,7 +480,7 @@ internal sealed class LinuxStats
                     _ioBytes[pid] = io;
                 }
 
-                string name = kernelThread ? KernelName(comm) : ProcessName(dir, comm);
+                string name = kernelThread ? KernelName(comm) : ProcessName(dir, pid, comm);
                 groups.Add(name, cpu, rssMb, disk);
             }
             catch
@@ -493,6 +493,7 @@ internal sealed class LinuxStats
         {
             _cpuTicks.Remove(pid);
             _ioBytes.Remove(pid);
+            _names.Remove(pid);
             _noIo.Remove(pid);
         }
 
@@ -535,29 +536,37 @@ internal sealed class LinuxStats
         return slash > 0 ? comm[..slash] : comm;
     }
 
-    readonly Dictionary<string, string> _longNames = new(StringComparer.Ordinal);
+    readonly Dictionary<int, (string Comm, string Name)> _names = new();
 
-    /// <summary>The kernel cuts process names to 15 characters; for those the program file name from the command line is used.</summary>
-    string ProcessName(string dir, string comm)
+    /// <summary>
+    /// The name a process is listed under, worked out once per process: the kernel cuts names to 15 characters (the
+    /// program file name from the command line is used then), and browser / Electron helpers ("Isolated Web Co",
+    /// "Web Content", "RDD Process", chrome --type=renderer) count as the program that started them.
+    /// </summary>
+    string ProcessName(string dir, int pid, string comm)
     {
-        if (comm.Length < 15)
-            return comm;
-        if (_longNames.TryGetValue(comm, out var cached))
-            return cached;
+        if (_names.TryGetValue(pid, out var cached) && cached.Comm == comm)
+            return cached.Name;
         string name = comm;
         try
         {
             var cmd = File.ReadAllText(Path.Combine(dir, "cmdline"));
             int nul = cmd.IndexOf('\0');
-            string exe = Path.GetFileName(nul >= 0 ? cmd[..nul] : cmd);
-            if (exe.StartsWith(comm, StringComparison.Ordinal))
+            string argv0 = nul >= 0 ? cmd[..nul] : cmd;
+            // Firefox rewrites its command line with spaces between the arguments, so the helper flag can follow either.
+            bool helper = cmd.Contains("-contentproc", StringComparison.Ordinal) || cmd.Contains("--type=", StringComparison.Ordinal);
+            if (helper && argv0.IndexOf(' ') is int space and > 0)
+                argv0 = argv0[..space];
+            string exe = Path.GetFileName(argv0);
+            if (exe.Length > 0 && !exe.Contains(' ') && (helper || comm.Length >= 15 && exe.StartsWith(comm, StringComparison.Ordinal)))
                 name = exe;
         }
         catch
         {
-            // keep the short name
+            // keep the kernel's name
         }
-        return _longNames[comm] = name;
+        _names[pid] = (comm, name);
+        return name;
     }
 
     // ---------------------------------------------------------------- uptime

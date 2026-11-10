@@ -316,6 +316,12 @@ public sealed class TaskManagerGauge : Gauge
             Text(dc, L.T("now"), plot.Right, ty, 9.5, P.Accent, P.Mono, Align.Right);
         }
 
+        // Just started: say why most of the graph is empty instead of leaving a blank box.
+        double emptyRight = X(0) - 8;
+        if (emptyRight - plot.X > 150 && plot.Height > 40)
+            Text(dc, L.F("History fills in over {0} s", span), plot.X + (emptyRight - plot.X) / 2, plot.Y + plot.Height / 2,
+                 10.5, P.Dim, P.Font);
+
         if (window.Count < 2)
             return;
 

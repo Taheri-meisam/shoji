@@ -345,6 +345,48 @@
           }
         }
       ]
+    },
+    {
+      "Name": "Monitor",
+      "Columns": 0,
+      "Modules": [
+        {
+          "Type": "taskmanager",
+          "Enabled": true,
+          "Span": 2,
+          "Options": {
+            "Style": "stream",
+            "Metric": "cpu"
+          }
+        },
+        {
+          "Type": "taskmanager",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Style": "ring",
+            "Metric": "memory"
+          }
+        },
+        {
+          "Type": "taskmanager",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Style": "stream",
+            "Metric": "disk"
+          }
+        },
+        {
+          "Type": "taskmanager",
+          "Enabled": true,
+          "Span": 2,
+          "Options": {
+            "Style": "ring",
+            "Metric": "cpu"
+          }
+        }
+      ]
     }
   ],
   "PageCycleSeconds": 0,
