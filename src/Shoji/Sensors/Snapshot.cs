@@ -15,6 +15,8 @@ public sealed record Snapshot
     public NetworkInfo? Network { get; init; }
     public IReadOnlyList<DiskInfo> Disks { get; init; } = Array.Empty<DiskInfo>();
     public IReadOnlyList<ProcessInfo> TopProcesses { get; init; } = Array.Empty<ProcessInfo>();
+    /// <summary>Every app's CPU / RAM / disk use and the machine-wide totals (only polled for the Task manager tile).</summary>
+    public ProcessTable? Processes { get; init; }
     public ActivityInfo? Activity { get; init; }
     public MediaInfo? Media { get; init; }
     public SystemInfo? System { get; init; }
@@ -78,7 +80,15 @@ public sealed record NetworkInfo(
 
 public sealed record DiskInfo(string Name, string Label, double UsedGb, double TotalGb);
 
-public sealed record ProcessInfo(string Name, double CpuPercent, double MemoryMb);
+/// <summary>One app (all its processes grouped by name): CPU in % of the whole machine, resident memory, disk read + write.</summary>
+public sealed record ProcessInfo(string Name, double CpuPercent, double MemoryMb, double DiskBytesPerSec = 0, int Instances = 1);
+
+/// <summary>
+/// One sample of the process table: the busiest apps by CPU, by memory and by disk (merged, so each view has its own
+/// leaders), plus totals over every process. <see cref="Sample"/> goes up by one per fresh reading.
+/// </summary>
+public sealed record ProcessTable(long Sample, DateTime Time, int ProcessCount, double CpuPercent, double MemoryMb, double DiskBytesPerSec,
+    IReadOnlyList<ProcessInfo> Apps);
 
 public sealed record ActivityInfo(
     string ProcessName,

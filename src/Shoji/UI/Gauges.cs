@@ -465,16 +465,20 @@ public sealed class TapeGauge : Gauge
         double w = ActualWidth, h = ActualHeight;
         if (w < 40 || h < 40) return;
         double v = V("v"), cy = h / 2, k = h / Span, x1 = w * 0.62;
+        double bh = Math.Min(30, Math.Max(18, h * 0.14));
         double step = Step * Math.Max(1, Math.Ceiling(12 / (k * Step))); // keep ticks ≥12 px apart
 
-        dc.PushClip(new RectangleGeometry(new Rect(0, 2, w, h - 4)));
+        // A labelled tape keeps its top strip for the sensor name, so the scale's numbers never run under it.
+        double top = string.IsNullOrEmpty(Label) ? 2 : 18;
+        dc.PushClip(new RectangleGeometry(new Rect(0, top, w, h - top - 2)));
         for (double x = Math.Floor((v - Span / 2) / step) * step; x <= v + Span / 2; x += step)
         {
             double y = cy - (x - v) * k;
             dc.DrawRectangle(Alpha((SolidColorBrush)Zone(x), 0xB0), null, new Rect(x1 + 2, y - k * step / 2, 4, k * step));
             bool major = Math.Abs(x / LabelEvery - Math.Round(x / LabelEvery)) < 1e-6;
             dc.DrawLine(MakePen(major ? P.Fg : P.Dim, 1), new Point(x1 - (major ? 12 : 6), y), new Point(x1, y));
-            if (major)
+            // Numbers that would sit half under the value box are left out (the box shows the value anyway).
+            if (major && Math.Abs(y - cy) > bh / 2 + 7)
                 Text(dc, x.ToString("0"), x1 - 16, y, Math.Max(10, Math.Min(14, k * 4)), P.Dim, P.Mono, Align.Right);
         }
         if (_history.Count > 1)
@@ -485,7 +489,7 @@ public sealed class TapeGauge : Gauge
         }
         dc.Pop();
 
-        double bw = Math.Max(16, Math.Min(w * 0.4, x1 - 26)), bh = Math.Min(30, Math.Max(18, h * 0.14)), bx = Math.Max(2, x1 - bw - 22);
+        double bw = Math.Max(16, Math.Min(w * 0.4, x1 - 26)), bx = Math.Max(2, x1 - bw - 22);
         var col = Has("v") ? Zone(v) == P.Good ? P.Fg : Zone(v) : P.Dim;
         var box = new StreamGeometry();
         using (var ctx = box.Open())
@@ -501,7 +505,10 @@ public sealed class TapeGauge : Gauge
         Text(dc, Has("v") ? Format(v) : Dash, bx + bw / 2 + 2, cy, bh * 0.62, col, P.Mono);
         Text(dc, Unit, w - 3, h - 12, 11, P.Dim, P.Mono, Align.Right);
         if (!string.IsNullOrEmpty(Label))
-            Text(dc, Label, 6, 12, 11, P.Dim, P.Mono, Align.Left);
+        {
+            int fit = Math.Max(3, (int)((w - 6) / 6.7)); // monospace, about 6.7 px a character at 11 px
+            Text(dc, Label.Length <= fit ? Label : Label[..(fit - 1)] + "…", 3, 9, 11, P.Dim, P.Mono, Align.Left);
+        }
     }
 }
 

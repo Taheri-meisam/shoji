@@ -146,6 +146,7 @@ public static class ModuleFactory
             case "network": return style == "classic" ? new NetworkModule(config) : new NetworkScopeModule(config);
             case "disks": return new DisksModule(config);
             case "processes": return style == "classic" ? new ProcessesModule(config) : new ProcessRadarModule(config);
+            case "taskmanager": return new TaskManagerModule(config, style);
             case "activity": return new UnsupportedModule(config, "timing each app and reading window titles (scenes can still react to the app in focus)");
             case "media": return new MediaModule(config, collector.Media);
             case "sensors": return new SensorsModule(config);

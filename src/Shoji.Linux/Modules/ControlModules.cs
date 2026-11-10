@@ -234,7 +234,7 @@ public sealed class MixerModule : Module
         DockPanel.SetDock(top, Dock.Top);
         body.Children.Add(top);
         // Apps first (what you reach for mid-game), then the outputs; the list scrolls when the tile is short.
-        body.Children.Add(new ScrollViewer { Content = W.Stack(_apps, outputHeader, _outputs), VerticalScrollBarVisibility = ScrollBarVisibility.Hidden });
+        body.Children.Add(new ScrollViewer { Content = W.Stack(_apps, outputHeader, _outputs), VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow());
         View = MakeTile(body, _output);
     }
 

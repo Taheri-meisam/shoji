@@ -47,6 +47,8 @@
     <Compile Include="../Shoji/Core/ObsClient.cs" Link="Shared/ObsClient.cs" />
     <Compile Include="../Shoji/Sensors/Snapshot.cs" Link="Shared/Snapshot.cs" />
     <Compile Include="../Shoji/Sensors/HistoryStore.cs" Link="Shared/HistoryStore.cs" />
+    <Compile Include="../Shoji/Sensors/ProcessHistory.cs" Link="Shared/ProcessHistory.cs" />
+    <Compile Include="../Shoji/UI/TaskManagerGauge.cs" Link="Shared/TaskManagerGauge.cs" />
     <Compile Include="../Shoji/Sensors/Integrations.cs" Link="Shared/Integrations.cs" />
     <Compile Include="../Shoji/Sensors/Calendars.cs" Link="Shared/Calendars.cs" />
     <Compile Include="../Shoji/Sensors/WebValue.cs" Link="Shared/WebValue.cs" />

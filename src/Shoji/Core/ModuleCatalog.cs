@@ -81,6 +81,11 @@ public static class ModuleCatalog
             Options: new[] { new OptionSpec("Host", "Host", "default 1.1.1.1") }) { Styles = new (string, string)[] { ("classic", "Classic"), ("scope", "Oscilloscope"), ("segments", "LED digits") } },
         new("disks", "Drives", "記憶装置", "Free space per drive, read / write speed"),
         new("processes", "Top processes", "プロセス", "Busiest apps by CPU, with RAM") { Styles = new (string, string)[] { ("classic", "List"), ("radar", "Radar") } },
+        new("taskmanager", "Task manager", "タスク", "Live stream graph of the apps using your CPU, memory and disk, with a ranked list and sparklines; tap to switch view", 2, new[]
+        {
+            new OptionSpec("Metric", "Starts on", "cpu (default), ram or disk"),
+            new OptionSpec("Seconds", "Graph length (s)", "30–120, default 90"),
+        }) { Styles = new (string, string)[] { ("stream", "Stream graph"), ("ring", "Rings") } },
         new("temps", "Temperatures", "温度", "Every temperature sensor, found automatically") { Styles = new (string, string)[] { ("classic", "List"), ("tapes", "Flight tapes"), ("tubes", "Coolant tubes"), ("segments", "LED digits (hottest)") } },
         new("fans", "Fans", "冷却", "Every fan and pump, found automatically"),
         new("history", "History", "履歴", "Graphs of the last hours (temperatures, load, FPS…)", 2, new[]
@@ -209,6 +214,7 @@ public static class ModuleCatalog
         ("default", "Classic", "The original nine tiles"),
         ("essentials", "Essentials", "Clock, CPU, GPU, memory, network, media"),
         ("gaming", "Gaming", "FPS, temperatures, status lamps, power, ping, last session"),
+        ("monitor", "System monitor", "Live task manager, CPU, GPU, memory, network, drives, temperatures"),
         ("deck", "Control", "Control deck, volume mixer, focus timer"),
         ("media", "Media", "Big now playing with synced lyrics"),
         ("ambient", "Ambient", "Big clock, weather, hourly forecast, system orbit, calendar, world clock"),
@@ -224,6 +230,7 @@ public static class ModuleCatalog
             "main" => new[] { "clock:2", "cpu", "gpu", "memory", "power", "network", "status", "media:2" },
             "essentials" => new[] { "clock:2", "cpu", "gpu", "memory", "network", "media:2" },
             "gaming" => new[] { "fps", "cpu", "gpu", "temps", "status", "power", "ping", "processes", "recap" },
+            "monitor" => new[] { "taskmanager:2", "cpu", "gpu", "memory", "network", "disks", "temps" },
             "deck" => new[] { "deck:9", "mixer", "timer" },
             "media" => new[] { "media:9!", "lyrics:9" },
             "ambient" => new[] { "clock:9!", "weather", "forecast:2", "overview", "calendar", "worldclock" },
@@ -231,7 +238,7 @@ public static class ModuleCatalog
             "everything" => new[]
             {
                 "clock", "weather", "forecast:2", "cpu", "gpu", "fps", "memory", "network", "temps", "fans", "ping", "disks",
-                "processes", "status", "power", "overview", "history:2", "system", "calendar", "worldclock", "activity", "media", "timer", "mixer", "battery",
+                "processes", "taskmanager:2", "status", "power", "overview", "history:2", "system", "calendar", "worldclock", "activity", "media", "timer", "mixer", "battery",
             },
             _ => new[] { "clock:2", "cpu", "gpu", "memory", "network", "disks", "processes", "activity", "media" },
         };

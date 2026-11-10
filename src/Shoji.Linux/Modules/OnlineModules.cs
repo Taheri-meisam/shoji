@@ -74,7 +74,7 @@ public sealed class HomeAssistantModule : OnlineModule
         // Token and labels are part of the key, so a corrected token or a renamed entity takes effect at once.
         _ha = collector.Service($"ha:{url}:{token.GetHashCode()}:{string.Join(",", entities.Select(e => $"{e.Id}={e.Label}"))}",
             () => new HomeAssistantService(url, token, entities));
-        View = MakeTile(new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }, Status);
+        View = MakeTile(new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow(), Status);
     }
 
     public override void Update(Snapshot s)
@@ -158,7 +158,7 @@ public sealed class AgendaModule : OnlineModule
             return;
         }
         _days = Math.Clamp(config.OptInt("Days", 3), 1, 31);
-        View = MakeTile(new ScrollViewer { Content = _list, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }, Status);
+        View = MakeTile(new ScrollViewer { Content = _list, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow(), Status);
     }
 
     /// <summary>A calendar's colour: its own from Settings, else one of the theme's by its place in the list.</summary>
@@ -192,7 +192,7 @@ public sealed class AgendaModule : OnlineModule
         _list.Children.Clear();
 
         if (events.Count == 0)
-            _list.Children.Add(W.Text(L.T("Nothing coming up."), UI.Theme.Small, UI.Theme.Dim));
+            _list.Children.Add(W.Empty("event_available", L.T("Nothing coming up.")));
 
         foreach (var day in events.GroupBy(e => e.Start.Date < DateTime.Today ? DateTime.Today : e.Start.Date))
         {

@@ -175,22 +175,51 @@ public sealed class SystemStats : IDisposable
     // ---------------------------------------------------------------- processes
 
     readonly Dictionary<int, TimeSpan> _cpuTimes = new();
+    readonly Dictionary<int, ulong> _ioBytes = new();
+    // Processes Windows won't open for us (protected / elevated ones): asked once, not every sample.
+    readonly HashSet<int> _noIo = new();
     DateTime _lastProcSample;
     IReadOnlyList<ProcessInfo> _topProcesses = Array.Empty<ProcessInfo>();
+    ProcessTable? _table;
+    long _samples;
     static readonly int OwnPid = Environment.ProcessId;
 
-    /// <summary>Top processes by CPU, grouped by name (so 30 browser processes count as one).</summary>
-    public IReadOnlyList<ProcessInfo> ReadTopProcesses(int count)
+    [StructLayout(LayoutKind.Sequential)]
+    struct IoCounters
+    {
+        public ulong ReadOperationCount, WriteOperationCount, OtherOperationCount, ReadTransferCount, WriteTransferCount, OtherTransferCount;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool GetProcessIoCounters(IntPtr process, out IoCounters counters);
+
+    [DllImport("kernel32.dll")]
+    static extern bool CloseHandle(IntPtr handle);
+
+    const uint ProcessQueryLimitedInformation = 0x1000;
+
+    /// <summary>The full table from the last <see cref="ReadTopProcesses"/> call made with table: true.</summary>
+    public ProcessTable? ProcessTable => _table;
+
+    /// <summary>
+    /// Top processes by CPU, grouped by name (so 30 browser processes count as one). With <paramref name="table"/>
+    /// (the Task manager tile) it samples every second instead of every two, also reads each process's read + write
+    /// traffic, and fills <see cref="ProcessTable"/>.
+    /// </summary>
+    public IReadOnlyList<ProcessInfo> ReadTopProcesses(int count, bool table = false)
     {
         var now = DateTime.UtcNow;
-        // Enumerating every process costs a few ms; twice a second at most is plenty.
-        if (now - _lastProcSample < TimeSpan.FromMilliseconds(1900))
+        // Enumerating every process costs a few ms; twice a second at most is plenty for the list, the graph wants one a second.
+        if (now - _lastProcSample < TimeSpan.FromMilliseconds(table ? 900 : 1900))
             return _topProcesses;
 
         double elapsed = _lastProcSample == default ? 0 : (now - _lastProcSample).TotalSeconds;
         _lastProcSample = now;
 
-        var groups = new Dictionary<string, (double cpu, double mem)>(StringComparer.OrdinalIgnoreCase);
+        var groups = new ProcessGroups(StringComparer.OrdinalIgnoreCase);
         var seen = new HashSet<int>();
 
         foreach (var p in Process.GetProcesses())
@@ -208,8 +237,15 @@ public sealed class SystemStats : IDisposable
                         cpu = (cpuTime - last).TotalSeconds / elapsed / Environment.ProcessorCount * 100;
                     _cpuTimes[p.Id] = cpuTime;
 
-                    groups.TryGetValue(p.ProcessName, out var g);
-                    groups[p.ProcessName] = (g.cpu + Math.Max(0, cpu), g.mem + p.WorkingSet64 / 1048576d);
+                    double disk = 0;
+                    if (table && ReadIo(p.Id) is ulong io)
+                    {
+                        if (elapsed > 0 && _ioBytes.TryGetValue(p.Id, out var lastIo) && io >= lastIo)
+                            disk = (io - lastIo) / elapsed;
+                        _ioBytes[p.Id] = io;
+                    }
+
+                    groups.Add(p.ProcessName, cpu, p.WorkingSet64 / 1048576d, disk);
                 }
                 catch
                 {
@@ -219,18 +255,40 @@ public sealed class SystemStats : IDisposable
         }
 
         foreach (var pid in _cpuTimes.Keys.Where(k => !seen.Contains(k)).ToList())
+        {
             _cpuTimes.Remove(pid);
+            _ioBytes.Remove(pid);
+            _noIo.Remove(pid);
+        }
 
         if (elapsed == 0)
             return _topProcesses; // first sample only primes the counters
 
-        return _topProcesses = groups
-            .Where(g => g.Key != "Idle")
-            .OrderByDescending(g => g.Value.cpu)
-            .ThenByDescending(g => g.Value.mem)
-            .Take(count)
-            .Select(g => new ProcessInfo(g.Key, g.Value.cpu, g.Value.mem))
-            .ToList();
+        groups.Remove("Idle");
+        if (table)
+            _table = groups.Table(++_samples, DateTime.Now, 8);
+        return _topProcesses = groups.Top(count);
+    }
+
+    /// <summary>Bytes the process has read and written so far (files, and on Windows also pipes and the network), or null.</summary>
+    ulong? ReadIo(int pid)
+    {
+        if (_noIo.Contains(pid))
+            return null;
+        var h = OpenProcess(ProcessQueryLimitedInformation, false, pid);
+        if (h == IntPtr.Zero)
+        {
+            _noIo.Add(pid);
+            return null;
+        }
+        try
+        {
+            return GetProcessIoCounters(h, out var c) ? c.ReadTransferCount + c.WriteTransferCount : null;
+        }
+        finally
+        {
+            CloseHandle(h);
+        }
     }
 
     public void Dispose()

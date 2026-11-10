@@ -25,6 +25,24 @@ public static partial class W
         VerticalAlignment = VerticalAlignment.Center,
     };
 
+    /// <summary>A quiet empty state: a faint icon (Material Icons name) over one line of text, centred.</summary>
+    public static StackPanel Empty(string icon, string text)
+    {
+        var glyph = Text(icon, 34, UI.Theme.Dim);
+        glyph.FontFamily = UI.Theme.Icons;
+        glyph.Opacity = 0.45;
+        glyph.TextTrimming = TextTrimming.None;
+        glyph.HorizontalAlignment = HorizontalAlignment.Center;
+        var line = Text(text, UI.Theme.Small + 1, UI.Theme.Dim);
+        line.HorizontalAlignment = HorizontalAlignment.Center;
+        line.TextAlignment = TextAlignment.Center;
+        line.TextWrapping = TextWrapping.Wrap;
+        var panel = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 16, 0, 0) };
+        panel.Children.Add(glyph);
+        panel.Children.Add(line);
+        return panel;
+    }
+
     /// <summary>Large text in the theme's display font, with the theme's glow / glitch.</summary>
     public static TextBlock Number(string text, double size, IBrush? color = null, FontWeight? weight = null)
     {

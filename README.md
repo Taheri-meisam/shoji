@@ -116,6 +116,7 @@ Swipe between pages, or let scenes switch them for you (a game starts → Gaming
 | `ping`       | Latency, average, jitter and packet loss to a host (default 1.1.1.1), history graph |
 | `disks`      | Free space per drive with usage bars, total read/write speed |
 | `processes`  | Top processes by CPU (grouped by name, e.g. all Chrome processes together) |
+| `taskmanager` | Live task manager: a stream graph of which apps use the CPU, memory or disk over the last 1–2 minutes, the total in big digits, and a ranked list with a sparkline per app. Tap CPU / RAM / Disk in its header (or the graph) to switch. Styles: Stream graph, or Rings (the history wrapped around a clock face, each app's share in an inner ring, the total in the middle). Options: `Metric` (cpu, ram, disk), `Seconds` (30–120) |
 | `temps`      | Every temperature, found automatically: CPU, CCDs, GPU core/hot spot/memory, each drive, motherboard, RAM |
 | `fans`       | Every fan and pump that spins, found automatically (motherboard, GPU, USB coolers) |
 | `system`     | Windows version and build, CPU, cores, GPU and driver, RAM kit and speed, motherboard, BIOS, screens |
@@ -390,6 +391,7 @@ Needles and arcs ease toward new readings like real instruments, and warning zon
 | Coolant tubes | Liquid tubes with a moving surface | Temperatures |
 | Hex threads | Every CPU thread as a honeycomb cell | CPU |
 | Radar | Sweeping scope; busiest processes closest to the centre | Top processes |
+| Rings | Radial stream graph of the last 90 s around a clock face, each app's share in an inner ring, total in the middle | Task manager |
 | Oscilloscope | Phosphor trace on a graticule | Network, ping |
 | LED digits | Seven-segment readout with unlit segments | CPU / GPU temperature, FPS, ping, clock, hottest sensor |
 | Ensō | Ink brush circle that closes as load rises, with a seal | CPU, GPU, memory, focus timer |

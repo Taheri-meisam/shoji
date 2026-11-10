@@ -135,7 +135,7 @@ public sealed class DisksModule : Module
     public DisksModule(ModuleConfig config) : base(config, "Drives")
     {
         _io = W.Text("", UI.Theme.Small, UI.Theme.Dim);
-        View = MakeTile(new ScrollViewer { Content = _list, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }, _io);
+        View = MakeTile(new ScrollViewer { Content = _list, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow(), _io);
     }
 
     public override void Update(Snapshot s)
@@ -215,6 +215,7 @@ public sealed class MediaModule : Module
     readonly Image _art = new() { Width = 72, Height = 72, Stretch = Stretch.UniformToFill };
     readonly TextBlock _title, _artist, _app, _time, _playIcon;
     readonly Meter _progress = new(4);
+    readonly TextBlock _note;
     byte[]? _shownThumb;
 
     public MediaModule(ModuleConfig config, LinuxMedia media) : base(config, "Now playing")
@@ -228,9 +229,19 @@ public sealed class MediaModule : Module
         var artFrame = new Border
         {
             Width = 72, Height = 72, CornerRadius = new CornerRadius(8), Background = UI.Theme.Track,
-            Child = _art, Margin = new Thickness(0, 0, 12, 0), ClipToBounds = true,
+            Margin = new Thickness(0, 0, 12, 0), ClipToBounds = true,
         };
         _art.Clip = new RectangleGeometry(new Rect(0, 0, 72, 72), 8, 8);
+        // A music note sits under the cover, so a song without artwork doesn't show an empty grey square.
+        var note = W.Text("music_note", 30, UI.Theme.Dim);
+        note.FontFamily = UI.Theme.Icons;
+        note.HorizontalAlignment = HorizontalAlignment.Center;
+        note.VerticalAlignment = VerticalAlignment.Center;
+        _note = note;
+        var cover = new Grid();
+        cover.Children.Add(note);
+        cover.Children.Add(_art);
+        artFrame.Child = cover;
         var text = W.Stack(_title, _artist, _time.ShowFrom(Density.Normal));
         var top = new DockPanel();
         DockPanel.SetDock(artFrame, Dock.Left);
@@ -240,7 +251,7 @@ public sealed class MediaModule : Module
         bool large = config.OptBool("Large");
         if (large)
         {
-            // Big cover for the Media page; the whole block scales down if the tile is smaller.
+            // Big cover for the Media page, sized to the tile (see FitLarge) so text stays readable on short screens.
             artFrame.Width = artFrame.Height = _art.Width = _art.Height = 200;
             artFrame.CornerRadius = new CornerRadius(14);
             _art.Clip = new RectangleGeometry(new Rect(0, 0, 200, 200), 14, 14);
@@ -265,7 +276,10 @@ public sealed class MediaModule : Module
 
         if (large)
         {
-            var scaled = new Viewbox { Child = top, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly };
+            artFrame.ClearValue(Responsive.ShowFromProperty); // FitLarge decides when the cover fits
+            artFrame.VerticalAlignment = VerticalAlignment.Center;
+            var scaled = new Border { Child = top, ClipToBounds = true };
+            scaled.SizeChanged += (_, _) => FitLarge(scaled.Bounds.Width, scaled.Bounds.Height, artFrame);
             var body = new DockPanel();
             DockPanel.SetDock(controls, Dock.Bottom);
             DockPanel.SetDock(_progress, Dock.Bottom);
@@ -276,6 +290,34 @@ public sealed class MediaModule : Module
             return;
         }
         View = MakeTile(Body(controls, top, _progress), _app);
+    }
+
+    /// <summary>
+    /// The big layout: the cover takes the tile's height (up to 220 px, hidden below 56) and the text scales with it,
+    /// never below a readable size. It used to shrink the whole block as a picture, which made text tiny on short screens.
+    /// </summary>
+    void FitLarge(double w, double h, Border artFrame)
+    {
+        if (w <= 0 || h <= 0)
+            return;
+        double art = Math.Floor(Math.Min(Math.Min(h - 4, w * 0.42), 220));
+        bool showArt = art >= 56;
+        artFrame.IsVisible = showArt;
+        if (showArt && Math.Abs(artFrame.Width - art) > 0.5)
+        {
+            artFrame.Width = artFrame.Height = _art.Width = _art.Height = art;
+            double r = Math.Clamp(art * 0.07, 6, 14);
+            artFrame.CornerRadius = new CornerRadius(r);
+            _art.Clip = new RectangleGeometry(new Rect(0, 0, art, art), r, r);
+            artFrame.Margin = new Thickness(0, 0, Math.Clamp(art * 0.12, 12, 24), 0);
+            _note.FontSize = art * 0.42;
+        }
+        double k = Math.Clamp(h / 200, 0.6, 1);
+        _title.FontSize = Math.Max(16, (UI.Theme.Medium + 13) * k);
+        _artist.FontSize = Math.Max(13, (UI.Theme.Medium + 3) * k);
+        _time.FontSize = Math.Max(11, UI.Theme.Medium * k);
+        _title.MaxWidth = Math.Max(120, w - (showArt ? art + artFrame.Margin.Right : 0));
+        _title.MaxHeight = _title.FontSize * 2.7; // two lines at most
     }
 
     static Border Button(string glyph, Func<System.Threading.Tasks.Task> action) => Button(W.Text(glyph, 22), action);
@@ -302,6 +344,7 @@ public sealed class MediaModule : Module
             _artist.Text = _app.Text = _time.Text = "";
             _art.Source = null;
             _shownThumb = null;
+            _note.IsVisible = true;
             _progress.Set(0);
             _playIcon.Text = "play_arrow";
             return;
@@ -327,6 +370,7 @@ public sealed class MediaModule : Module
         {
             _shownThumb = m.Thumbnail;
             _art.Source = m.Thumbnail == null ? null : LoadImage(m.Thumbnail);
+            _note.IsVisible = _art.Source == null;
         }
     }
 

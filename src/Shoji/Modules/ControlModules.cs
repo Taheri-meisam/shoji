@@ -190,7 +190,7 @@ public sealed class MixerModule : Module
         var body = new DockPanel();
         DockPanel.SetDock(top, Dock.Top);
         body.Children.Add(top);
-        body.Children.Add(new ScrollViewer { Content = _apps, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden });
+        body.Children.Add(new ScrollViewer { Content = _apps, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow());
         View = MakeTile(body, _output);
     }
 

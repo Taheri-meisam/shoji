@@ -56,6 +56,8 @@ public static class Demo
         history.Seed("gpu.temp", Series(360, k => 47 + 13 * Math.Sin(k / 51.0 + 1) + 3 * Math.Sin(k / 4.1)));
         history.Seed("cpu.load", Series(360, k => 30 + 18 * Math.Sin(k / 29.0) + 7 * Math.Sin(k / 3.7)));
         history.Seed("fps", Series(360, k => 110 + 20 * Math.Sin(k / 17.0) + 6 * Math.Sin(k / 2.9)));
+        // The Task manager tile's graph: two minutes of made-up process tables, one a second.
+        ProcessHistory.Shared.Seed(Enumerable.Range(-ProcessHistory.Capacity + Steps, ProcessHistory.Capacity).Select(Processes));
     }
 
     /// <summary>Called by LinuxCollector.Start instead of polling: the screenshot run decides when snapshots are published.</summary>
@@ -91,6 +93,30 @@ public static class Demo
     static double W(int i, double mid, double swing, double speed) =>
         Math.Round(mid + swing * Math.Sin((i - Steps + 1) * speed) + swing * 0.35 * Math.Sin((i - Steps + 1) * speed * 3.1 + 0.7), 1);
 
+    /// <summary>A made-up process table for second <paramref name="i"/> (step Steps-1 is "now").</summary>
+    static ProcessTable Processes(int i)
+    {
+        double P(double v) => Math.Max(0, v);
+        double Burst(int period, int length, double height) => ((i % period) + period) % period < length ? height : 0;
+        var apps = new[]
+        {
+            new ProcessInfo("cyberpunk2077", P(W(i, 24, 6, 0.21)), 9800, P(W(i, 6e6, 5e6, 0.33)) + Burst(37, 6, 48e6), 1),
+            new ProcessInfo("firefox", P(W(i, 9, 3.5, 0.13)) + Burst(23, 4, 9), 1840, P(W(i, 4e5, 3e5, 0.4)), 14),
+            new ProcessInfo("code", P(W(i, 3, 1.5, 0.37)) + Burst(41, 9, 7), 1260, Burst(41, 9, 2.4e6), 9),
+            new ProcessInfo("Discord", P(W(i, 3.6, 1.2, 0.29)), 610, 0, 5),
+            new ProcessInfo("gnome-shell", P(W(i, 2.2, 1, 0.55)), 380, 0, 1),
+            new ProcessInfo("spotify", P(W(i, 2.1, 0.6, 0.17)), 420, P(W(i, 1.2e5, 1e5, 0.2)), 4),
+            new ProcessInfo("pipewire", 0.8, 44, 0, 2),
+            new ProcessInfo("steam", P(W(i, 0.9, 0.5, 0.31)), 530, Burst(53, 5, 12e6), 3),
+            new ProcessInfo("dockerd", 0.4, 290, P(W(i, 2e5, 2e5, 0.7)), 1),
+        };
+        double cpu = apps.Sum(a => a.CpuPercent) + P(W(i, 3.5, 1.2, 0.47));
+        double mem = apps.Sum(a => a.MemoryMb) + 3900;
+        double disk = apps.Sum(a => a.DiskBytesPerSec) + P(W(i, 6e5, 4e5, 0.51));
+        return new ProcessTable(i + 1000, Now.AddSeconds(i - Steps + 1), 312, cpu, mem, disk,
+            apps.OrderByDescending(a => a.CpuPercent).ToList());
+    }
+
     /// <summary>The snapshot for step <paramref name="i"/> (negative: before the run-up).</summary>
     public static Snapshot Step(int i)
     {
@@ -123,6 +149,7 @@ public static class Demo
                 new ProcessInfo("cyberpunk2077", 38.1, 9800), new ProcessInfo("firefox", 12.4, 1840), new ProcessInfo("Discord", 4.2, 610),
                 new ProcessInfo("spotify", 2.9, 420), new ProcessInfo("gnome-shell", 2.1, 380), new ProcessInfo("pipewire", 0.8, 44),
             },
+            Processes = Processes(i),
             Media = new MediaInfo("Midnight City", "M83", "Spotify", true, TimeSpan.FromSeconds(102), TimeSpan.FromSeconds(243), null),
             System = new SystemInfo("Ubuntu 26.04 LTS", "Linux 7.0.0", "shoji-demo", "AMD Ryzen 9 7950X", "16 cores, 32 threads",
                 "AMD Radeon RX 7900 XTX", "Mesa 26.1", "64 GB DDR5-6000", "ASUS ROG STRIX X670E-F", "3201", Now - new TimeSpan(3, 4, 12, 0),

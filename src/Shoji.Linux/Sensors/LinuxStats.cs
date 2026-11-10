@@ -389,8 +389,13 @@ internal sealed class LinuxStats
     // ---------------------------------------------------------------- processes
 
     readonly Dictionary<int, long> _cpuTicks = new();
+    readonly Dictionary<int, long> _ioBytes = new();
+    // Processes whose /proc/<pid>/io can't be read (another user's, without root): tried once, not every sample.
+    readonly HashSet<int> _noIo = new();
     DateTime _lastProcSample;
     IReadOnlyList<ProcessInfo> _topProcesses = Array.Empty<ProcessInfo>();
+    ProcessTable? _table;
+    long _samples;
     static readonly int OwnPid = Environment.ProcessId;
     static readonly double TicksPerSecond = ClockTicks();
     static readonly long PageSize = Environment.SystemPageSize;
@@ -411,18 +416,25 @@ internal sealed class LinuxStats
         }
     }
 
-    /// <summary>Top processes by CPU, grouped by name (so 30 browser processes count as one), CPU in % of the whole machine.</summary>
-    public IReadOnlyList<ProcessInfo> ReadTopProcesses(int count)
+    /// <summary>The full table from the last <see cref="ReadTopProcesses"/> call made with table: true.</summary>
+    public ProcessTable? ProcessTable => _table;
+
+    /// <summary>
+    /// Top processes by CPU, grouped by name (so 30 browser processes count as one), CPU in % of the whole machine.
+    /// With <paramref name="table"/> (the Task manager tile) it samples every second instead of every two, also reads
+    /// each process's disk traffic, and fills <see cref="ProcessTable"/>.
+    /// </summary>
+    public IReadOnlyList<ProcessInfo> ReadTopProcesses(int count, bool table = false)
     {
         var now = DateTime.UtcNow;
-        // Walking /proc costs a few ms; every two seconds is plenty (same pace as Windows).
-        if (now - _lastProcSample < TimeSpan.FromMilliseconds(1900))
+        // Walking /proc costs a few ms; every two seconds is plenty for the list (same pace as Windows), the graph wants one a second.
+        if (now - _lastProcSample < TimeSpan.FromMilliseconds(table ? 900 : 1900))
             return _topProcesses;
 
         double elapsed = _lastProcSample == default ? 0 : (now - _lastProcSample).TotalSeconds;
         _lastProcSample = now;
 
-        var groups = new Dictionary<string, (double cpu, double mem)>(StringComparer.Ordinal);
+        var groups = new ProcessGroups(StringComparer.Ordinal);
         var seen = new HashSet<int>();
         int threads = Environment.ProcessorCount;
 
@@ -460,9 +472,16 @@ internal sealed class LinuxStats
                         rssMb = LinuxCli.ParseLong(parts[1]) * PageSize / 1048576d;
                 }
 
+                double disk = 0;
+                if (table && !kernelThread && ReadIo(dir, pid) is long io)
+                {
+                    if (elapsed > 0 && _ioBytes.TryGetValue(pid, out var lastIo))
+                        disk = Math.Max(0, io - lastIo) / elapsed;
+                    _ioBytes[pid] = io;
+                }
+
                 string name = kernelThread ? KernelName(comm) : ProcessName(dir, comm);
-                groups.TryGetValue(name, out var g);
-                groups[name] = (g.cpu + Math.Max(0, cpu), g.mem + rssMb);
+                groups.Add(name, cpu, rssMb, disk);
             }
             catch
             {
@@ -471,17 +490,42 @@ internal sealed class LinuxStats
         }
 
         foreach (var pid in _cpuTicks.Keys.Where(k => !seen.Contains(k)).ToList())
+        {
             _cpuTicks.Remove(pid);
+            _ioBytes.Remove(pid);
+            _noIo.Remove(pid);
+        }
 
         if (elapsed == 0)
             return _topProcesses; // first sample only primes the counters
 
-        return _topProcesses = groups
-            .OrderByDescending(g => g.Value.cpu)
-            .ThenByDescending(g => g.Value.mem)
-            .Take(count)
-            .Select(g => new ProcessInfo(g.Key, g.Value.cpu, g.Value.mem))
-            .ToList();
+        if (table)
+            _table = groups.Table(++_samples, DateTime.Now, 8);
+        return _topProcesses = groups.Top(count);
+    }
+
+    /// <summary>Bytes the process has read from and written to storage so far, or null when it isn't ours to read.</summary>
+    long? ReadIo(string dir, int pid)
+    {
+        if (_noIo.Contains(pid))
+            return null;
+        try
+        {
+            long read = 0, write = 0;
+            foreach (var line in File.ReadLines(Path.Combine(dir, "io")))
+            {
+                if (line.StartsWith("read_bytes:", StringComparison.Ordinal))
+                    read = LinuxCli.ParseLong(line[11..].Trim());
+                else if (line.StartsWith("write_bytes:", StringComparison.Ordinal))
+                    write = LinuxCli.ParseLong(line[12..].Trim());
+            }
+            return read + write;
+        }
+        catch
+        {
+            _noIo.Add(pid);
+            return null;
+        }
     }
 
     /// <summary>"kworker/u64:2" and friends become one "kworker" row.</summary>

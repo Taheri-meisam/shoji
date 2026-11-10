@@ -292,7 +292,7 @@ public sealed class TempsGaugeModule : Module
             {
                 _tapes.Children.Clear();
                 foreach (var t in shown)
-                    _tapes.Children.Add(new TapeGauge { Label = Short(t.Label), Unit = Gauges.TempUnit, WarnAt = Gauges.Unit(UI.Theme.TempWarn), CritAt = Gauges.Unit(UI.Theme.TempCrit) });
+                    _tapes.Children.Add(new TapeGauge { Label = t.Label, Unit = Gauges.TempUnit, WarnAt = Gauges.Unit(UI.Theme.TempWarn), CritAt = Gauges.Unit(UI.Theme.TempCrit) });
             }
         }
         for (int i = 0; i < shown.Count; i++)
@@ -370,6 +370,74 @@ public sealed class ProcessRadarModule : Module
     }
 
     public override void Update(Snapshot s) => _radar.SetBlips(s.TopProcesses.Select(p => (p.Name, p.CpuPercent)));
+}
+
+/// <summary>
+/// Live task manager: a stream graph of which apps use the CPU, memory or disk, and a ranked list with sparklines.
+/// The header's CPU / RAM / Disk switch (or a tap on the graph) changes the view.
+/// </summary>
+public sealed class TaskManagerModule : Module
+{
+    readonly TaskManagerGauge _gauge = new();
+    readonly List<(ProcessMetric Metric, Border Pill, TextBlock Text)> _chips = new();
+
+    public TaskManagerModule(ModuleConfig config, string style) : base(config, "Task manager")
+    {
+        _gauge.Ring = style == "ring";
+        _gauge.Seconds = Math.Clamp(config.OptInt("Seconds", 90), 30, 120);
+        _gauge.MinHeight = 80;
+        // A segmented switch: real buttons with room to hit on a touch screen, the chosen view filled in.
+        bool square = UI.Theme.Current.Shape is TileShape.Hud or TileShape.Chamfer;
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        foreach (var (m, label) in new[] { (ProcessMetric.Cpu, "CPU"), (ProcessMetric.Memory, "RAM"), (ProcessMetric.Disk, "Disk") })
+        {
+            var text = W.Text(L.T(label), UI.Theme.Small, UI.Theme.Dim);
+            var pill = new Border
+            {
+                Child = text, Padding = new Thickness(11, 3, 11, 3), MinWidth = 44,
+                CornerRadius = new CornerRadius(square ? 0 : 9), Background = Brushes.Transparent,
+            };
+            text.HorizontalAlignment = HorizontalAlignment.Center;
+            Tap.On(pill, () => Show(m));
+            row.Children.Add(pill);
+            _chips.Add((m, pill, text));
+        }
+        var bar = new Border
+        {
+            Child = row, Padding = new Thickness(2), Background = UI.Theme.Track,
+            CornerRadius = new CornerRadius(square ? 0 : 11), VerticalAlignment = VerticalAlignment.Center,
+        };
+        Tap.On(_gauge, () => Show((ProcessMetric)(((int)_gauge.Metric + 1) % 3)));
+        Show(ParseMetric(config.Opt("Metric")));
+        View = MakeTile(_gauge, bar);
+    }
+
+    public static ProcessMetric ParseMetric(string? s) => s?.Trim().ToLowerInvariant() switch
+    {
+        "ram" or "memory" or "mem" => ProcessMetric.Memory,
+        "disk" or "io" or "i/o" => ProcessMetric.Disk,
+        _ => ProcessMetric.Cpu,
+    };
+
+    void Show(ProcessMetric m)
+    {
+        _gauge.Metric = m;
+        foreach (var (metric, pill, text) in _chips)
+        {
+            bool on = metric == m;
+            pill.Background = on ? UI.Theme.Accent : Brushes.Transparent;
+            text.Foreground = on ? UI.Theme.Tile : UI.Theme.Dim;
+            text.FontWeight = on ? FontWeight.SemiBold : FontWeight.Normal;
+        }
+    }
+
+    public override void Update(Snapshot s)
+    {
+        ProcessHistory.Shared.Add(s.Processes);
+        if (s.Memory is { } mem)
+            _gauge.SetMemory(mem.UsedGb * 1024, mem.TotalGb * 1024);
+        _gauge.Refresh();
+    }
 }
 
 public sealed class ClockSegmentsModule : Module

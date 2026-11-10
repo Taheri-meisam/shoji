@@ -44,7 +44,7 @@ public sealed class WebsitesModule : Module
             View = MakeTile(hint);
             return;
         }
-        View = MakeTile(new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }, _summary);
+        View = MakeTile(new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow(), _summary);
     }
 
     Row MakeRow()

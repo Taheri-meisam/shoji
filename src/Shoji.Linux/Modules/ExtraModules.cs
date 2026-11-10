@@ -36,7 +36,7 @@ public sealed class ReadingsModule : Module
 
         var body = new DockPanel();
         body.Children.Add(_note);
-        body.Children.Add(new ScrollViewer { Content = _list, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden });
+        body.Children.Add(new ScrollViewer { Content = _list, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow());
         View = MakeTile(body, _summary);
     }
 
@@ -84,7 +84,7 @@ public sealed class SystemModule : Module
             _rows.Children.Add(SpecRow(label));
         _rows.Children.Add(SpecRow("Up since"));
         _uptime = _values["Up since"];
-        View = MakeTile(new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }, _host);
+        View = MakeTile(new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow(), _host);
     }
 
     /// <summary>Label keeps its width; long values (CPU names) trim from the right instead of pushing the label out.</summary>
@@ -164,7 +164,7 @@ public sealed class WeatherModule : Module
         details.Margin = new Thickness(0, 8, 0, 4);
 
         _days.Margin = new Thickness(0, 6, 0, 0);
-        View = MakeTile(Body(_days.ShowFrom(Density.Normal), now, details.ShowFrom(Density.Normal)), _place);
+        View = MakeTile(Body(new WholeOrNothing(_days).ShowFrom(Density.Normal), now, details.ShowFrom(Density.Normal)), _place);
     }
 
     internal static TextBlock WeatherIcon(double size)

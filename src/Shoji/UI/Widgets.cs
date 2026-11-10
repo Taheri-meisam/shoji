@@ -27,6 +27,25 @@ public static class W
         };
     }
 
+    /// <summary>A quiet empty state: a faint icon (Segoe Fluent glyph) over one line of text, centred.</summary>
+    public static StackPanel Empty(string glyph, string text)
+    {
+        var icon = Text(glyph, 34, Theme.Dim);
+        icon.FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets");
+        icon.Opacity = 0.45;
+        icon.TextTrimming = TextTrimming.None;
+        icon.HorizontalAlignment = HorizontalAlignment.Center;
+        var line = Text(text, Theme.Small + 1, Theme.Dim);
+        line.HorizontalAlignment = HorizontalAlignment.Center;
+        line.TextAlignment = TextAlignment.Center;
+        line.TextWrapping = TextWrapping.Wrap;
+        line.Margin = new Thickness(0, 4, 0, 0);
+        var panel = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 16, 0, 0) };
+        panel.Children.Add(icon);
+        panel.Children.Add(line);
+        return panel;
+    }
+
     /// <summary>Large text in the theme's display font (clock digits, big stats), with the theme's glow/glitch effect.</summary>
     public static TextBlock Number(string text, double size, Brush? color = null, FontWeight? weight = null)
     {

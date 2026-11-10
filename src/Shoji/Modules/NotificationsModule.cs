@@ -48,7 +48,7 @@ public sealed class NotificationsModule : Module
             Rebuild();
         });
 
-        var scroll = new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden };
+        var scroll = new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow();
         View = MakeTile(Body(scroll, _hint), _clear);
     }
 
@@ -81,9 +81,7 @@ public sealed class NotificationsModule : Module
         _rows.Children.Clear();
         if (items.Count == 0)
         {
-            var empty = W.Text(L.T("No notifications"), Theme.Small + 1, Theme.Dim);
-            empty.HorizontalAlignment = HorizontalAlignment.Center;
-            empty.Margin = new Thickness(0, 18, 0, 0);
+            var empty = W.Empty("\uEA8F", L.T("No notifications"));
             _rows.Children.Add(empty);
         }
         foreach (var item in items)
