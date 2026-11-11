@@ -651,9 +651,9 @@ catalog, scenes, alerts, weather, websites, integrations, web server, themes, la
 
 ## Theme regression tests
 
-`scripts/theme-regression.sh` renders every theme on six test pages (`tests/regression/config`) with fixed demo
+`scripts/theme-regression.sh` renders every theme on six test pages (`tests/regression/config`), plus Midnight and Sakura in portrait, with fixed demo
 data and a frozen clock, using the Linux edition's headless renderer, and compares each picture with
-`tests/regression/baselines/` (168 pictures, ~2 minutes). It writes a report with the differences highlighted and
+`tests/regression/baselines/` (180 pictures, ~2 minutes). It writes a report with the differences highlighted and
 exits 1 when something changed. After an intended visual change, run it with `--update`; `--themes matcha,tokyo`
 and `--pages 1,3` narrow it down. Needs gcc and python3 with Pillow. Baselines depend on the machine's fonts, so a
 new machine starts with `--update`.

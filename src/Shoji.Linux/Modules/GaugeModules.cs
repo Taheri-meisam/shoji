@@ -56,7 +56,7 @@ public sealed class CpuGaugeModule : Module
             "hex" => new HexGrid(),
             _ => Gauges.Load(style, L.T("CPU LOAD")),
         };
-        View = GaugeTile(_gauge, _info, _name);
+        View = GaugeTile(_gauge, _info, _name, side: Round(style));
     }
 
     public override void Update(Snapshot s)
@@ -119,7 +119,7 @@ public sealed class GpuGaugeModule : Module
     {
         _name = W.Text("", UI.Theme.Small, UI.Theme.Dim);
         _gauge = style == "segments" ? new SevenSegment() : Gauges.Load(style, L.T("GPU LOAD"), "画像");
-        View = GaugeTile(_gauge, _info, _name);
+        View = GaugeTile(_gauge, _info, _name, side: Round(style));
     }
 
     public override void Update(Snapshot s)
@@ -160,7 +160,7 @@ public sealed class MemoryGaugeModule : Module
         {
             _gauge = Gauges.Load(style, L.T("RAM IN USE"), "記憶");
         }
-        View = GaugeTile(_gauge, _info);
+        View = GaugeTile(_gauge, _info, side: Round(style));
     }
 
     public override void Update(Snapshot s)
@@ -197,7 +197,7 @@ public sealed class FpsGaugeModule : Module
             "segments" => new SevenSegment { Label = "FPS" },
             _ => new ArcGauge { Label = "FPS", Unit = "", Max = 180, WarnAt = 1e9, CritAt = 1e9 },
         };
-        View = GaugeTile(_gauge, _info, _app);
+        View = GaugeTile(_gauge, _info, _app, side: Round(style));
     }
 
     public override void Update(Snapshot s)
@@ -481,7 +481,7 @@ public sealed class BatteryGaugeModule : Module
     public BatteryGaugeModule(ModuleConfig config, string style) : base(config, "Battery")
     {
         _gauge = style == "led" ? new LedArc { Label = L.T("CHARGE"), WarnAt = 1e9, CritAt = 1e9 } : new ArcGauge { Label = L.T("CHARGE"), WarnAt = 1e9, CritAt = 1e9 };
-        View = GaugeTile(_gauge, _info);
+        View = GaugeTile(_gauge, _info, side: Round(style));
     }
 
     public override void Update(Snapshot s)

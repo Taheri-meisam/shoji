@@ -92,7 +92,7 @@ public sealed class PowerGaugeModule : Module
             "segments" => new SevenSegment { Label = "SYSTEM W" },
             _ => new ArcGauge { Label = "SYSTEM", Unit = "W", Max = max, WarnAt = max * 0.7, CritAt = max * 0.9 },
         };
-        View = GaugeTile(_gauge, _info);
+        View = GaugeTile(_gauge, _info, side: Round(style));
     }
 
     public override void Update(Snapshot s)

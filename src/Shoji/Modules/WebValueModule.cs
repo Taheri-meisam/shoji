@@ -69,7 +69,7 @@ public sealed class WebValueModule : OnlineModule
             face.Children.Add(Centered(_text));
             Status.TextAlignment = TextAlignment.Center;
             Status.HorizontalAlignment = HorizontalAlignment.Center;
-            View = GaugeTile(face, Status, infoAlways: true);
+            View = GaugeTile(face, Status, infoAlways: true, side: style == "arc");
             return;
         }
 

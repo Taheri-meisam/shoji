@@ -468,6 +468,20 @@ public sealed class Dashboard : Window, IDashboardHost
         ShowPageIndex(index, animate: false, fromScene: true);
     }
 
+    /// <summary>A stacked row's share of the height: what its hungriest tile can use.</summary>
+    static double RowWeight(Page page, List<(int Row, int Col, int Span)> placement, int row)
+    {
+        double w = 0;
+        for (int i = 0; i < page.Modules.Count; i++)
+            if (placement[i].Row == row)
+            {
+                var c = page.Modules[i].Config;
+                string type = c.Type.ToLowerInvariant();
+                w = Math.Max(w, TileLayout.HeightWeight(type, UI.Theme.StyleFor(type, c.Opt("Style"))));
+            }
+        return w > 0 ? w : 1;
+    }
+
     static void LayoutPage(Page page)
     {
         var grid = page.Grid;
@@ -478,8 +492,10 @@ public sealed class Dashboard : Window, IDashboardHost
         var placement = TileLayout.Pack(page.Modules.Select(m => m.Config.Span).ToList(), page.Columns);
         for (int c = 0; c < page.Columns; c++)
             grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
-        for (int r = 0; r <= placement.Max(p => p.Row); r++)
-            grid.RowDefinitions.Add(new RowDefinition(1, GridUnitType.Star));
+        int rows = placement.Max(p => p.Row) + 1;
+        bool tall = TileLayout.Tall(rows, page.Columns);
+        for (int r = 0; r < rows; r++)
+            grid.RowDefinitions.Add(new RowDefinition(tall ? RowWeight(page, placement, r) : 1, GridUnitType.Star));
         for (int i = 0; i < page.Modules.Count; i++)
         {
             var view = page.Modules[i].View;

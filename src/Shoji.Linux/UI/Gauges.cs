@@ -808,6 +808,8 @@ public sealed class OrbitGauge : Gauge
         if (w < 60 || h < 40) return;
         var c = new Point(w / 2, h * 0.52);
         double R = Math.Min(w * 0.48, h * 1.05), dt = Math.Min(0.25, Now - _last);
+        // The outer orbit uses the width a wide tile offers (room kept for its label), not just a share of the sun's scale.
+        double orbit = Math.Max(R * 0.46, Math.Min(w * 0.5 - 64, (h * 0.5 - 16) / 0.42)) / 0.92;
         _last = Now;
         while (_angles.Count < Bodies.Count)
             _angles.Add(_angles.Count * 97.0);
@@ -818,7 +820,7 @@ public sealed class OrbitGauge : Gauge
         for (int i = 0; i < Bodies.Count; i++)
         {
             var (label, brush, unit) = Bodies[i];
-            double k = 0.3 + 0.62 * i / Math.Max(1, Bodies.Count - 1), rx = R * k * 0.5, ry = rx * 0.42;
+            double k = 0.3 + 0.62 * i / Math.Max(1, Bodies.Count - 1), rx = orbit * k, ry = rx * 0.42;
             double v = Math.Clamp(V("i" + i), 0, 100);
             if (UI.Theme.Animate)
                 _angles[i] += (8 + v * 0.9) * (1.2 - k * 0.5) * dt;

@@ -77,7 +77,7 @@ public static partial class W
     {
         var full = new FormattedText(t.Text ?? "", System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
             new Typeface(t.FontFamily, t.FontStyle, t.FontWeight), t.FontSize, null).Width;
-        t.Opacity = e.NewSize.Width + 1 >= full * 0.6 ? 1 : 0;
+        t.Opacity = e.NewSize.Width + 1 >= full * 0.72 ? 1 : 0;
     };
 
     public static UniformGrid Columns(params Control[] children)

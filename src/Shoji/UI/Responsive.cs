@@ -105,3 +105,147 @@ public static class OverflowFade
         return sv;
     }
 }
+
+/// <summary>
+/// A gauge with its summary line ("65° · 4.91 GHz · 93 W"). Normally the line sits under the gauge; when the tile is
+/// much wider than tall (a portrait screen's stacked rows, a bar display) the gauge moves left and the summary
+/// becomes a column of readable numbers beside it, with the units dimmed, instead of a small line under an island.
+/// </summary>
+public sealed class GaugeWithInfo : Panel
+{
+    readonly UIElement _gauge;
+    readonly TextBlock _info;
+    readonly TextBlock _side = new() { VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.NoWrap };
+    // Follows the summary's text (WPF's TextBlock has no change event; a binding notifies without holding the tile).
+    readonly TextBlock _watch = new();
+    string[] _parts = System.Array.Empty<string>();
+    double _size;
+
+    public GaugeWithInfo(UIElement gauge, TextBlock info)
+    {
+        _gauge = gauge;
+        _info = info;
+        Children.Add(gauge);
+        Children.Add(info);
+        Children.Add(_side);
+        _watch.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(TextBlock.Text)) { Source = info, NotifyOnTargetUpdated = true });
+        _watch.TargetUpdated += (_, _) => Sync();
+        Sync();
+    }
+
+    void Sync()
+    {
+        var parts = (_info.Text ?? "").Split(" · ", System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries);
+        if (System.Linq.Enumerable.SequenceEqual(parts, _parts))
+            return;
+        _parts = parts;
+        _size = 0; // rebuild at the next measure
+        InvalidateMeasure();
+    }
+
+    bool Wide(Size s) => _parts.Length > 0 && s.Width >= s.Height * 2.1 && s.Height >= 64
+                         && !double.IsInfinity(s.Width) && !double.IsInfinity(s.Height);
+
+    /// <summary>Splits "4.91 GHz" into the number and the rest, so the unit can be dimmed.</summary>
+    static (string Number, string Unit) Split(string part)
+    {
+        int i = 0;
+        while (i < part.Length && (char.IsDigit(part[i]) || part[i] is '.' or ',' or '-' or '+' or '°' or '%' || i > 0 && part[i] == ':'))
+            i++;
+        return i == 0 ? ("", part) : (part[..i], part[i..]);
+    }
+
+    void Build(double size)
+    {
+        if (System.Math.Abs(size - _size) < 0.25)
+            return;
+        _size = size;
+        _side.Inlines.Clear();
+        for (int i = 0; i < _parts.Length; i++)
+        {
+            if (i > 0)
+                _side.Inlines.Add(new System.Windows.Documents.LineBreak());
+            var (num, rest) = Split(_parts[i]);
+            if (num.Length > 0)
+                _side.Inlines.Add(new System.Windows.Documents.Run(num)
+                    { FontSize = size, FontFamily = Theme.Display, FontWeight = FontWeights.SemiBold, Foreground = Theme.Text });
+            if (rest.Length > 0)
+                _side.Inlines.Add(new System.Windows.Documents.Run(rest)
+                    { FontSize = num.Length > 0 ? size * 0.62 : size * 0.72, FontFamily = Theme.Font, Foreground = Theme.Dim });
+        }
+        _side.LineHeight = size * 1.28;
+        _side.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+    }
+
+    double SideSize(Size s) => System.Math.Clamp(System.Math.Min(s.Height / (_parts.Length * 1.45 + 0.4),
+        s.Width * 0.5 / (System.Linq.Enumerable.Max(_parts, p => p.Length) * 0.5 + 1)), 12, 26);
+
+    protected override Size MeasureOverride(Size available)
+    {
+        if (Wide(available))
+        {
+            Build(SideSize(available));
+            _info.Measure(default);
+            _side.Measure(new Size(available.Width * 0.55, available.Height));
+            _gauge.Measure(new Size(System.Math.Min(available.Height * 1.25, available.Width * 0.5), available.Height));
+            return available;
+        }
+        _side.Measure(default);
+        _info.Measure(available);
+        double ih = _info.Visibility == Visibility.Visible ? _info.DesiredSize.Height : 0;
+        _gauge.Measure(new Size(available.Width, System.Math.Max(0, available.Height - ih)));
+        return new Size(System.Math.Max(_gauge.DesiredSize.Width, _info.DesiredSize.Width), _gauge.DesiredSize.Height + ih);
+    }
+
+    protected override Size ArrangeOverride(Size final)
+    {
+        bool wide = Wide(final);
+        _side.Opacity = wide ? 1 : 0; // opacity, not Visibility: no layout pass from inside the layout pass
+        _info.Opacity = wide ? 0 : 1;
+        if (wide)
+        {
+            // Gauge and numbers as one group, centred: the gauge square-ish, the column beside it.
+            double gw = System.Math.Min(final.Height * 1.25, final.Width * 0.5);
+            double tw = System.Math.Min(_side.DesiredSize.Width, final.Width - gw - 14);
+            double x = System.Math.Max(0, (final.Width - gw - 14 - tw) / 2);
+            _gauge.Arrange(new Rect(x, 0, gw, final.Height));
+            double th = _side.DesiredSize.Height;
+            _side.Arrange(new Rect(x + gw + 14, System.Math.Max(0, (final.Height - th) / 2), tw, System.Math.Min(th, final.Height)));
+            _info.Arrange(new Rect(0, 0, 0, 0));
+            return final;
+        }
+        double ih = _info.Visibility == Visibility.Visible ? _info.DesiredSize.Height : 0;
+        _gauge.Arrange(new Rect(0, 0, final.Width, System.Math.Max(0, final.Height - ih)));
+        _info.Arrange(new Rect(0, final.Height - ih, final.Width, ih));
+        _side.Arrange(new Rect(0, 0, 0, 0));
+        return final;
+    }
+}
+
+/// <summary>
+/// The filler at the bottom of a tile (a history graph) shown only when the room left reaches its minimum height:
+/// below that the layout would push it over the rows above it instead.
+/// </summary>
+public sealed class FillOrNothing : System.Windows.Controls.Decorator
+{
+    public FillOrNothing(UIElement child) => Child = child;
+
+    protected override Size MeasureOverride(Size available)
+    {
+        if (Child == null)
+            return default;
+        Child.Measure(available);
+        return new Size(Child.DesiredSize.Width, System.Math.Min(Child.DesiredSize.Height, available.Height));
+    }
+
+    protected override Size ArrangeOverride(Size final)
+    {
+        if (Child == null)
+            return final;
+        double min = (Child as FrameworkElement)?.MinHeight ?? 0;
+        bool fits = final.Height + 0.5 >= min;
+        Child.Opacity = fits ? 1 : 0; // not Visibility: no layout pass from inside the layout pass
+        Child.Arrange(fits ? new Rect(final) : new Rect(0, 0, 0, 0));
+        return final;
+    }
+}

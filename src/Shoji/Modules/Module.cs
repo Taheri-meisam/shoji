@@ -62,19 +62,25 @@ public abstract class Module : IDisposable
 
     /// <summary>A tile whose body is a gauge filling the space, with an optional one-line summary underneath.</summary>
     /// <param name="infoAlways">Keep the summary line when the tile is compact (e.g. the date under an LED clock).</param>
-    protected Tile GaugeTile(UIElement gauge, TextBlock? info = null, UIElement? headerRight = null, bool infoAlways = false)
+    /// <param name="side">A round gauge: on a wide, short tile the summary becomes a column of numbers beside it.</param>
+    protected Tile GaugeTile(UIElement gauge, TextBlock? info = null, UIElement? headerRight = null, bool infoAlways = false, bool side = false)
     {
+        if (info != null && !infoAlways)
+            info.ShowFrom(Density.Normal); // small tiles: just the gauge
+        if (info != null && side)
+            return MakeTile(new GaugeWithInfo(gauge, info), headerRight);
         var d = new DockPanel { LastChildFill = true };
         if (info != null)
         {
-            if (!infoAlways)
-                info.ShowFrom(Density.Normal); // small tiles: just the gauge
             DockPanel.SetDock(info, Dock.Bottom);
             d.Children.Add(info);
         }
         d.Children.Add(gauge);
         return MakeTile(d, headerRight);
     }
+
+    /// <summary>Round gauge styles, which can put their summary beside them (LED digits and tapes are wide already).</summary>
+    protected static bool Round(string style) => style is not ("segments" or "tape" or "tapes" or "tubes" or "classic");
 
     /// <summary>Small centred summary line under a gauge ("61° · 4.72 GHz · 48 W").</summary>
     protected static TextBlock InfoLine()
@@ -95,7 +101,7 @@ public abstract class Module : IDisposable
             DockPanel.SetDock(t, Dock.Top);
             d.Children.Add(t);
         }
-        d.Children.Add(fill);
+        d.Children.Add(fill is FrameworkElement { MinHeight: > 0 } ? new FillOrNothing(fill) : fill);
         return d;
     }
 }

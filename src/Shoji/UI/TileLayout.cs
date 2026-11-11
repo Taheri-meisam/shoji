@@ -87,6 +87,40 @@ public static class TileLayout
     }
 
     /// <summary>
+    /// How much height a tile can use, relative to an average tile, when a page is stacked tall (a portrait screen):
+    /// a round gauge or a graph grows with the height it gets, a few lines of text don't. Rows share the height by
+    /// these weights instead of equally, so gauges stop being squeezed while a three-line list sits in empty space.
+    /// </summary>
+    public static double HeightWeight(string type, string style)
+    {
+        bool classic = style is "classic";
+        return type switch
+        {
+            "taskmanager" => 1.5,
+            "processes" => classic ? 1.0 : 1.25,
+            "mirror" or "photos" => 1.25,
+            "overview" => 1.2,
+            "cpu" or "gpu" or "fps" => classic ? (type == "fps" ? 0.85 : 1.05) : style == "segments" ? 0.95 : 1.15,
+            "memory" or "battery" or "power" or "timer" or "webvalue" or "ping" =>
+                classic ? (type is "webvalue" ? 0.8 : type is "ping" ? 0.95 : 0.9) : style == "segments" ? 0.9 : 1.1,
+            "temps" => classic ? 0.95 : style == "segments" ? 0.9 : 1.1,
+            "network" => classic ? 1.0 : 1.15,
+            "calendar" or "notifications" or "lyrics" => 1.15,
+            "forecast" or "history" or "deck" or "mixer" => 1.1,
+            "status" => 1.05,
+            "recap" => 1.05,
+            "clock" => classic ? 0.9 : 1.0,
+            "sensors" or "fans" or "system" or "disks" => 0.9,
+            "media" => 0.95,
+            "ticker" => 0.6,
+            _ => 1.0,
+        };
+    }
+
+    /// <summary>True when a page's tiles are stacked tall (two or more rows per column), where rows use <see cref="HeightWeight"/>.</summary>
+    public static bool Tall(int rows, int columns) => columns <= 2 && rows >= columns * 2 && rows >= 3;
+
+    /// <summary>
     /// Places tiles left to right, wrapping when a tile doesn't fit. The last tile in a row that isn't
     /// full is stretched to the right edge, so there are never empty holes.
     /// </summary>

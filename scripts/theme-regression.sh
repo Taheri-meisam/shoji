@@ -9,6 +9,7 @@
 #   scripts/theme-regression.sh --themes tokyo,sumi only these themes (also --pages 1,3)
 #   scripts/theme-regression.sh --dll path/shoji.dll  use that build instead of building
 #   options: --jobs N (default 4)  --out DIR (default a temp folder)  --wait S (default 3)
+# Every theme renders at 1280×480 (<theme>-p<N>.png); Midnight and Sakura also at 480×1280 (<theme>-p<N>-portrait.png).
 #
 # Needs: the .NET SDK (~/.dotnet or on PATH), gcc or cc (tests/regression/fixedclock.c freezes the wall clock at
 # 2026-10-08 14:03:43 so calendars and "5 min ago" match the demo snapshot), python3 with Pillow (compare.py).
@@ -17,7 +18,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REG="$ROOT/tests/regression"
 
-UPDATE=0 THEMES="" PAGES="" DLL="" JOBS=4 OUT="" WAIT=3
+UPDATE=0 THEMES="" PAGES="" DLL="" JOBS=4 OUT="" WAIT=3 PORTRAIT_THEMES="midnight sakura"
 while [ $# -gt 0 ]; do
     case "$1" in
         --update) UPDATE=1 ;;
@@ -27,7 +28,7 @@ while [ $# -gt 0 ]; do
         --jobs) JOBS="$2"; shift ;;
         --out) OUT="$2"; shift ;;
         --wait) WAIT="$2"; shift ;;
-        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,/^set /{/^#/p}' "$0"; exit 0 ;;
         *) echo "Unknown option $1 (see --help)" >&2; exit 2 ;;
     esac
     shift
@@ -70,14 +71,15 @@ export TZ=UTC LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 export SHOJI_DEMO=1 SHOJI_FAKE_EPOCH="$(date -u -d '2026-10-08 14:03:43' +%s)"
 export DLL OUT REG WAIT
 
-render() { # theme page
-    local name="$1-p$2" cfg="$OUT/run/$1-p$2"
+render() { # theme page [size suffix]
+    local size="${3:-1280x480}" suffix="${4:-}"
+    local name="$1-p$2$suffix" cfg="$OUT/run/$1-p$2$suffix"
     for attempt in 1 2; do
         rm -rf "$cfg" && mkdir -p "$cfg"
         cp -r "$REG/config/Shoji" "$cfg/"
         sed -i "s#{{PHOTOS}}#$REG/photos#" "$cfg/Shoji/config.json"
         if XDG_CONFIG_HOME="$cfg" LD_PRELOAD="$OUT/fixedclock.so" timeout 120 \
-               dotnet "$DLL" --screenshot "$OUT/actual/$name.png" --size 1280x480 --page "$2" --theme "$1" --wait "$WAIT" \
+               dotnet "$DLL" --screenshot "$OUT/actual/$name.png" --size "$size" --page "$2" --theme "$1" --wait "$WAIT" \
                > "$cfg/out.txt" 2>&1 && [ -s "$OUT/actual/$name.png" ]; then
             rm -rf "$cfg"
             return 0
@@ -96,10 +98,18 @@ for t in $ALL_THEMES; do
         NAMES+="$t-p$p.png,"
     done
 done
+# Portrait: a dark and a light theme on a 480×1280 screen, where tiles stack in one column.
+for t in $PORTRAIT_THEMES; do
+    case " $(echo $ALL_THEMES) " in *" $t "*) ;; *) continue ;; esac
+    for p in $ALL_PAGES; do
+        JOBLIST+="$t $p 480x1280 -portrait"$'\n'
+        NAMES+="$t-p$p-portrait.png,"
+    done
+done
 COUNT="$(printf '%s' "$JOBLIST" | grep -c .)"
 echo "Rendering $COUNT pictures, $JOBS at a time…"
 START=$(date +%s.%N) # (the real clock: only the renders' clock is frozen)
-printf '%s' "$JOBLIST" | xargs -P "$JOBS" -L 1 bash -c 'render "$0" "$1"'
+printf '%s' "$JOBLIST" | xargs -P "$JOBS" -L 1 bash -c 'render "$0" "$1" "${2:-}" "${3:-}"'
 echo "Rendered in $(python3 -c "import sys; print(round(float(sys.argv[2]) - float(sys.argv[1])))" "$START" "$(date +%s.%N)") s"
 
 ARGS=(--baselines "$REG/baselines" --actual "$OUT/actual" --out "$OUT" --names "$NAMES")

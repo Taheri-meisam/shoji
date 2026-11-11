@@ -84,7 +84,7 @@ public static class W
         var full = new FormattedText(t.Text ?? "", System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
             new Typeface(t.FontFamily, t.FontStyle, t.FontWeight, t.FontStretch), t.FontSize, Brushes.Black,
             VisualTreeHelper.GetDpi(t).PixelsPerDip).Width;
-        t.Opacity = e.NewSize.Width + 1 >= full * 0.6 ? 1 : 0;
+        t.Opacity = e.NewSize.Width + 1 >= full * 0.72 ? 1 : 0;
     };
 
     /// <summary>Lays children out in equal-width columns.</summary>
