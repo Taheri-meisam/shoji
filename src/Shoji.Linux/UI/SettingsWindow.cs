@@ -102,7 +102,7 @@ static class Icons
         ["timer"] = new("timer", TimeA, TimeB),
         ["deck"] = new("keyboard", CtrlA, CtrlB), ["homeassistant"] = new("home", CtrlA, CtrlB), ["mirror"] = new("cast", CtrlA, CtrlB),
         ["status"] = new("verified_user", InfoA, InfoB), ["recap"] = new("star", InfoA, InfoB), ["activity"] = new("insights", InfoA, InfoB),
-        ["battery"] = new("battery_full", InfoA, InfoB), ["disks"] = new("storage", InfoA, InfoB), ["github"] = new("code", InfoA, InfoB),
+        ["battery"] = new("battery_full", InfoA, InfoB), ["disks"] = new("storage", InfoA, InfoB), ["drivehealth"] = new("favorite", InfoA, InfoB), ["aiusage"] = new("smart_toy", InfoA, InfoB), ["github"] = new("code", InfoA, InfoB),
         ["ticker"] = new("trending_up", InfoA, InfoB), ["system"] = new("computer", InfoA, InfoB),
         ["photos"] = new("photo_library", MediaA, MediaB),
     };
@@ -351,7 +351,7 @@ public sealed partial class SettingsWindow : Window
             case "scenes": AddScenes(config); break;
             case "deck": AddDeck(config); AddObs(config); break;
             case "alerts": AddAlerts(config); break;
-            case "phone": AddWeb(config); break;
+            case "phone": AddWeb(config); AddMqtt(config); break;
             case "hardware": AddHardware(config); break;
             default: AddAbout(); break;
         }

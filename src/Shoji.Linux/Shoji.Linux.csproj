@@ -41,6 +41,7 @@
     <Compile Include="../Shoji/Core/UpdateChecker.cs" Link="Shared/UpdateChecker.cs" />
     <Compile Include="../Shoji/Core/ModuleCatalog.cs" Link="Shared/ModuleCatalog.cs" />
     <Compile Include="../Shoji/Core/SceneEngine.cs" Link="Shared/SceneEngine.cs" />
+    <Compile Include="../Shoji/Core/MqttPublisher.cs" Link="Shared/MqttPublisher.cs" />
     <Compile Include="../Shoji/Core/WebServer.cs" Link="Shared/WebServer.cs" />
     <Compile Include="../Shoji/Core/DeckIcons.cs" Link="Shared/DeckIcons.cs" />
     <Compile Include="../Shoji/Core/L.cs" Link="Shared/L.cs" />
@@ -52,6 +53,8 @@
     <Compile Include="../Shoji/Sensors/Integrations.cs" Link="Shared/Integrations.cs" />
     <Compile Include="../Shoji/Sensors/Calendars.cs" Link="Shared/Calendars.cs" />
     <Compile Include="../Shoji/Sensors/WebValue.cs" Link="Shared/WebValue.cs" />
+    <Compile Include="../Shoji/Sensors/AiUsage.cs" Link="Shared/AiUsage.cs" />
+    <Compile Include="../Shoji/Sensors/DriveHealth.cs" Link="Shared/DriveHealth.cs" />
     <Compile Include="../Shoji/Sensors/PingMonitor.cs" Link="Shared/PingMonitor.cs" />
     <Compile Include="../Shoji/Sensors/PowerMeter.cs" Link="Shared/PowerMeter.cs" />
     <Compile Include="../Shoji/Sensors/RecapTracker.cs" Link="Shared/RecapTracker.cs" />

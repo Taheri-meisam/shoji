@@ -44,6 +44,7 @@ public sealed class MainWindow : Window, IDashboardHost
     readonly Grid _pagesHost = new();
     readonly Backdrop _backdrop = new();
     readonly ArtLayer _art = new();
+    readonly Wallpaper _wallpaper = new(); // the user's own background picture (UI/Wallpaper.cs)
     readonly AlbumArtBackdrop _cover = new(); // the playing track's cover behind a media page (UI/AlbumArtBackdrop.cs)
     readonly CrtOverlay _crt = new();
     readonly Canvas _animBack = new() { IsHitTestVisible = false, ClipToBounds = true };
@@ -79,6 +80,8 @@ public sealed class MainWindow : Window, IDashboardHost
     IReadOnlyList<AlertEngine.Alert> _activeAlerts = Array.Empty<AlertEngine.Alert>();
     WebServer? _web;
     string? _webSignature;
+    MqttPublisher? _mqtt;
+    string? _mqttSignature;
     Snapshot? _last;
     Point? _swipeStart;
     bool _swiping;
@@ -121,6 +124,7 @@ public sealed class MainWindow : Window, IDashboardHost
         var layers = new Grid();
         layers.Children.Add(_backdrop);
         layers.Children.Add(_art);
+        layers.Children.Add(_wallpaper);
         layers.Children.Add(_cover);
         layers.Children.Add(_animBack);
         layers.Children.Add(root);
@@ -224,6 +228,7 @@ public sealed class MainWindow : Window, IDashboardHost
         }
 
         UpdateWebServer();
+        UpdateMqtt();
         UpdateWebDeck();
         UpdateNight();
         TileHold.Handler = config.LongPressEdit ? OnTileHold : null;
@@ -241,6 +246,7 @@ public sealed class MainWindow : Window, IDashboardHost
         Background = Theme.WindowBackground;
         _backdrop.InvalidateVisual();
         _art.Restart();
+        _wallpaper.Update(_config);
         _crt.InvalidateVisual();
 
         int showing = CurrentPageIndex;
@@ -292,6 +298,7 @@ public sealed class MainWindow : Window, IDashboardHost
         }
         // The phone dashboard keeps going even while the small screen is off or unplugged.
         _web?.Publish(s, _appliedTheme);
+        _mqtt?.Publish(s);
         if (!IsVisible)
             return;
 
@@ -750,6 +757,18 @@ public sealed class MainWindow : Window, IDashboardHost
 
     // ---------------------------------------------------------------- web dashboard
 
+    /// <summary>Starts, restarts or stops the MQTT publisher when its settings changed.</summary>
+    void UpdateMqtt()
+    {
+        var mqtt = _config.Mqtt;
+        string? signature = mqtt.Enabled && !string.IsNullOrWhiteSpace(mqtt.Host) ? mqtt.Signature : null;
+        if (signature == _mqttSignature)
+            return;
+        _mqtt?.Dispose();
+        _mqtt = signature == null ? null : new MqttPublisher(mqtt);
+        _mqttSignature = signature;
+    }
+
     void UpdateWebServer()
     {
         var web = _config.Web;
@@ -940,6 +959,7 @@ public sealed class MainWindow : Window, IDashboardHost
         DisposeModules();
         _collector?.Dispose();
         ServiceStore.DisposeAll();
+        _mqtt?.Dispose();
         _web?.Dispose();
         base.OnClosed(e);
     }

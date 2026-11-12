@@ -80,6 +80,8 @@ public static class ModuleCatalog
         new("ping", "Ping", "応答", "Latency, jitter and packet loss to a host",
             Options: new[] { new OptionSpec("Host", "Host", "default 1.1.1.1") }) { Styles = new (string, string)[] { ("classic", "Classic"), ("scope", "Oscilloscope"), ("segments", "LED digits") } },
         new("disks", "Drives", "記憶装置", "Free space per drive, read / write speed"),
+        new("drivehealth", "Drive health", "健康", "Is a drive wearing out or failing? Each drive's own verdict (SMART), wear, running time and temperature"),
+        new("aiusage", "AI usage", "人工知能", "How much Claude Code and Codex were used on this PC: tokens in the last 5 and 24 hours, per model and per hour, and Codex's limits. Read from their own logs; nothing is sent anywhere"),
         new("processes", "Top processes", "プロセス", "Busiest apps by CPU, with RAM") { Styles = new (string, string)[] { ("classic", "List"), ("radar", "Radar") } },
         new("taskmanager", "Task manager", "タスク", "Live stream graph of the apps using your CPU, memory and disk, with a ranked list and sparklines; tap to switch view", 2, new[]
         {
@@ -161,7 +163,7 @@ public static class ModuleCatalog
             new OptionSpec("Fps", "Frames / second", "default 5, max 30"),
         }),
 #endif
-        new("homeassistant", "Home Assistant", "家", "Lights, switches, sensors and cameras; tap to toggle", 1, new[]
+        new("homeassistant", "Home Assistant", "家", "Lights, scenes, thermostats, blinds, media players, sensors and cameras; tap to switch, − / + to adjust", 1, new[]
         {
             new OptionSpec("Url", "Server", "e.g. http://homeassistant.local:8123"),
             new OptionSpec("Token", "Token", "long-lived access token (your profile → Security)", OptionKind.Secret),

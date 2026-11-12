@@ -313,7 +313,7 @@ public sealed partial class SettingsWindow : Window
             case "scenes": AddScenes(config); break;
             case "deck": AddDeck(config); AddObs(config); break;
             case "alerts": AddAlerts(config); break;
-            case "phone": AddWeb(config); break;
+            case "phone": AddWeb(config); AddMqtt(config); break;
             case "hardware": AddSensors(); break;
             default: AddAbout(); break;
         }
@@ -712,10 +712,28 @@ public sealed partial class SettingsWindow : Window
         Setting(card, L.T("Columns"), L.T("Pages can override this"), Combo(new[] { L.T("Automatic"), "1", "2", "3", "4", "5", "6" }, Math.Clamp(config.Columns, 0, 6), i => Change(c => c.Columns = i)), icon: "\uE8A9");
         Setting(card, L.T("Animations"), L.T("Drifting petals, aurora, neon flicker, scan lines"), Switch(config.Animations, v => Change(c => c.Animations = v)), icon: "\uE945");
         Setting(card, L.T("Album art backdrop"), L.T("The playing song's cover, blurred, behind a page with Now playing"), Switch(config.AlbumArtBackdrop, v => Change(c => c.AlbumArtBackdrop = v)), icon: "\uE93C");
+        var picture = TextField(config.BackgroundImage, 240, v => Change(c => c.BackgroundImage = v), L.T("A picture file on this PC (JPG, PNG, WebP). Empty = the theme's own backdrop"));
+        var choose = Button(L.T("Choose…"), () =>
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog { Title = L.T("Background picture"), Filter = L.T("Pictures") + "|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp;*.tif;*.tiff|*.*|*.*" };
+            if (dialog.ShowDialog(this) == true)
+                Change(c => c.BackgroundImage = dialog.FileName, rebuild: true);
+        });
+        var pick = new StackPanel { Orientation = Orientation.Horizontal };
+        picture.Margin = new Thickness(0, 0, 8, 0);
+        pick.Children.Add(picture);
+        pick.Children.Add(choose);
+        Setting(card, L.T("Background picture"), L.T("Your own picture behind the tiles; best with see-through themes such as Glass and Aurora"), pick, icon: "\uEB9F");
+        Setting(card, L.T("Picture dimming"), L.T("Percent of the theme's background colour over the picture, so text stays readable"), Number(config.BackgroundImageDim, v => Change(c => c.BackgroundImageDim = (int)Math.Clamp(v, 0, 95))), icon: "\uE706");
         Setting(card, L.T("Pixel shift"), L.T("Moves the layout a few pixels now and then against OLED burn-in"), Switch(config.PixelShift, v => Change(c => c.PixelShift = v)), icon: "\uE7A1");
         Setting(card, L.T("Cover the taskbar"), L.T("Hides the taskbar on the dashboard's screen so it fills it completely (your main taskbar stays)"),
             Switch(config.CoverTaskbar, v => Change(c => c.CoverTaskbar = v)), icon: "\uE740");
         Setting(card, L.T("Always on top"), null, Switch(config.Topmost, v => Change(c => c.Topmost = v)), icon: "\uE718");
+        Setting(card, L.T("Translate Shoji"), L.T("Writes every text to lang/template.json in the data folder. Save it as your language's code (de.json, fr.json…), fill in the translations and pick it below."), Button(L.T("Make a template"), () =>
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(System.IO.Path.GetDirectoryName(L.WriteTemplate())!) { UseShellExecute = true }); }
+            catch (Exception ex) { Log.Write($"Translation template: {ex.Message}"); }
+        }), icon: "\uE8C1");
         // Language names stay in their own language, so they can be found whatever the current one is.
         int language = Math.Max(0, L.Languages.ToList().FindIndex(x => x.Id.Equals(config.Language, StringComparison.OrdinalIgnoreCase)));
         Setting(card, L.T("Language"), L.T("Dashboard, Settings and tray menu. Automatic follows Windows."),
@@ -2027,6 +2045,26 @@ public sealed partial class SettingsWindow : Window
         var sites = Card();
         Setting(sites, L.T("Website down"), L.T("Sites on a Websites tile, after two failed checks in a row"), Switch(a.SiteDown, v => Change(c => c.Alerts.SiteDown = v)), icon: "\uE774");
         Setting(sites, L.T("SSL certificate expires within"), L.T("days (domains: twice this)"), Number(a.CertDays, v => Change(c => c.Alerts.CertDays = v)), last: true, icon: "\uE72E");
+    }
+
+    // ================================================================ Smart home (MQTT)
+
+    void AddMqtt(AppConfig config)
+    {
+        var m = config.Mqtt;
+        var card = Card();
+        card.Margin = new Thickness(0, 26, 0, 10);
+        string? status = !m.Enabled ? L.T("Home Assistant and other smart-home systems can then show them and act on them")
+            : string.IsNullOrWhiteSpace(m.Host) ? L.T("Fill in the broker's address below") : MqttPublisher.LastStatus ?? L.T("Connecting…");
+        Setting(card, L.T("Send this PC's readings to your smart home (MQTT)"), status, Switch(m.Enabled, v => Change(c => c.Mqtt.Enabled = v, rebuild: true)), icon: "\uE80F");
+        Setting(card, L.T("Broker"), L.T("Address of the MQTT broker, e.g. homeassistant.local"), TextField(m.Host, 220, v => Change(c => c.Mqtt.Host = v, rebuild: true)), icon: "\uE839");
+        Setting(card, L.T("Broker port"), L.T("Usually 1883, or 8883 when encrypted"), TextField(m.Port.ToString(), 90, v => Change(c => c.Mqtt.Port = int.TryParse(v, out int n) && n is > 0 and < 65536 ? n : 1883, rebuild: true)), icon: "\uE839");
+        Setting(card, L.T("Encrypted connection (TLS)"), null, Switch(m.Tls, v => Change(c => c.Mqtt.Tls = v, rebuild: true)), icon: "\uE72E");
+        Setting(card, L.T("User name"), L.T("Leave empty if the broker doesn't ask for one"), TextField(m.User, 180, v => Change(c => c.Mqtt.User = v, rebuild: true)), icon: "\uE77B");
+        Setting(card, L.T("Password"), L.T("Kept in Shoji's settings file on this PC"), TextField(m.Password, 180, v => Change(c => c.Mqtt.Password = v, rebuild: true)), icon: "\uE72E");
+        Setting(card, L.T("Topic"), L.F("Empty = {0}", MqttPublisher.DefaultTopic), TextField(m.Topic, 220, v => Change(c => c.Mqtt.Topic = v, rebuild: true)), icon: "\uE8EC");
+        Setting(card, L.T("Announce to Home Assistant"), L.T("The readings show up there as a device by themselves (MQTT discovery)"), Switch(m.Discovery, v => Change(c => c.Mqtt.Discovery = v, rebuild: true)), last: true, icon: "\uE80F");
+        _panel.Children.Add(Hint(L.T("Every 10 seconds: CPU, GPU, memory, power, FPS, ping and network speed (for the tiles you use), the app in focus, whether a full-screen app such as a game is running, and whether you're at the PC. Use them in automations: dim the lights when a game starts, switch a fan on when the GPU gets hot. Shoji only sends; it never takes commands over MQTT.")));
     }
 
     void AddWeb(AppConfig config)

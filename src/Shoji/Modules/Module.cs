@@ -136,6 +136,8 @@ public static class ModuleFactory
             case "memory": return style == "classic" ? new MemoryModule(config) : new MemoryGaugeModule(config, style);
             case "network": return style == "classic" ? new NetworkModule(config) : new NetworkScopeModule(config);
             case "disks": return new DisksModule(config);
+            case "drivehealth": return new DriveHealthModule(config);
+            case "aiusage": return new AiUsageModule(config);
             case "processes": return style == "classic" ? new ProcessesModule(config) : new ProcessRadarModule(config);
             case "taskmanager": return new TaskManagerModule(config, style);
             case "activity": return new ActivityModule(config);

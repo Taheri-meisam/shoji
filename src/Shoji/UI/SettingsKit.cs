@@ -194,7 +194,7 @@ static class SettingsIcons
         ["timer"] = new("", TimeA, TimeB),
         ["deck"] = new("", CtrlA, CtrlB), ["homeassistant"] = new("", CtrlA, CtrlB), ["mirror"] = new("", CtrlA, CtrlB),
         ["status"] = new("", InfoA, InfoB), ["recap"] = new("", InfoA, InfoB), ["activity"] = new("", InfoA, InfoB),
-        ["battery"] = new("", InfoA, InfoB), ["disks"] = new("", InfoA, InfoB), ["github"] = new("", InfoA, InfoB),
+        ["battery"] = new("", InfoA, InfoB), ["disks"] = new("", InfoA, InfoB), ["drivehealth"] = new("\uE95E", InfoA, InfoB), ["aiusage"] = new("\uE99A", InfoA, InfoB), ["github"] = new("", InfoA, InfoB),
         ["ticker"] = new("", InfoA, InfoB), ["system"] = new("", InfoA, InfoB),
         ["photos"] = new("\uE91B", MediaA, MediaB),
     };

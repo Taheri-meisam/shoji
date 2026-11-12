@@ -48,6 +48,10 @@ public sealed class AppConfig
     public string? AccentColor { get; set; }
     public string? BackgroundColor { get; set; }
     public string? TileColor { get; set; }
+    /// <summary>A picture behind the tiles (a file on this PC), instead of the theme's own backdrop.</summary>
+    public string? BackgroundImage { get; set; }
+    /// <summary>How much of the theme's background colour lies over the picture, in percent, so text stays readable.</summary>
+    public int BackgroundImageDim { get; set; } = 55;
 
     /// <summary>Temperatures (°C) at which values turn orange / red.</summary>
     public double TempWarn { get; set; } = 70;
@@ -102,6 +106,7 @@ public sealed class AppConfig
     public DayNightConfig DayNight { get; set; } = new();
     public AlertsConfig Alerts { get; set; } = new();
     public WebConfig Web { get; set; } = new();
+    public MqttConfig Mqtt { get; set; } = new();
     public NightConfig Night { get; set; } = new();
     public ObsConfig Obs { get; set; } = new();
     /// <summary>Update check (see Core/UpdateChecker.cs).</summary>
@@ -278,6 +283,7 @@ public sealed class AppConfig
         DayNight ??= new DayNightConfig();
         Alerts ??= new AlertsConfig();
         Web ??= new WebConfig();
+        Mqtt ??= new MqttConfig();
         Night ??= new NightConfig();
         Updates ??= new UpdatesConfig();
         Normalize();

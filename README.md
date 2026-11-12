@@ -115,6 +115,7 @@ Swipe between pages, or let scenes switch them for you (a game starts → Gaming
 | `network`    | Download/upload speed, IP, session totals, dual history graph |
 | `ping`       | Latency, average, jitter and packet loss to a host (default 1.1.1.1), history graph |
 | `disks`      | Free space per drive with usage bars, total read/write speed |
+| `drivehealth` | Is a drive wearing out or failing? Each drive's own verdict (SMART) as Good / Keep an eye on it / Failing, with wear, running time, temperature and data written. Linux: through udisks2, no root. Windows: the verdict needs no admin; wear and hours do |
 | `processes`  | Top processes by CPU (grouped by name, e.g. all Chrome processes together) |
 | `taskmanager` | Live task manager: a stream graph of which apps use the CPU, memory or disk over the last 1–2 minutes, the total in big digits, and a ranked list with a sparkline per app. Tap CPU / RAM / Disk in its header (or the graph) to switch. Styles: Stream graph, or Rings (the history wrapped around a clock face, each app's share in an inner ring, the total in the middle). Options: `Metric` (cpu, ram, disk), `Seconds` (30–120) |
 | `temps`      | Every temperature, found automatically: CPU, CCDs, GPU core/hot spot/memory, each drive, motherboard, RAM |
@@ -140,7 +141,8 @@ Swipe between pages, or let scenes switch them for you (a game starts → Gaming
 | `webvalue`   | Any number or text from a web address or JSON API (a field like `current.temperature_2m` or `data.items[0].price`): big number with a graph, arc gauge or LED digits |
 | `photos`     | Photo frame: your pictures one by one with a soft crossfade (default the Pictures folder); tap for the next |
 | `mirror`     | Live copy of your main screen (with the mouse pointer), another window (Discord, OBS stats, a minimap…) or an area of the screen |
-| `homeassistant` | Home Assistant lights / switches (tap to toggle), sensors and camera snapshots |
+| `homeassistant` | Home Assistant: lights, switches, scenes, thermostats (current → target, with − / +), blinds, locks and media players (tap to switch; dimmable lights and numbers get − / + too), sensors and camera snapshots |
+| `aiusage`    | How much Claude Code and Codex were used on this PC: tokens in the last 5 and 24 hours, answers, per model, a bar per hour, and Codex's own limits with their reset times. Read from the logs they keep in your home folder; nothing is sent anywhere and no key is needed |
 | `github`     | Latest CI run and open pull requests per repository |
 | `twitch`     | Live Twitch chat of a channel (read-only, no login) |
 | `ticker`     | Stock prices (Yahoo Finance) and crypto (CoinGecko) with today's change |
@@ -288,6 +290,8 @@ board; a certificate expiring within 14 days (domain: 28 days) gives a warning. 
 
 - **Alerts**: a banner flashes (with a sound) when the CPU or GPU gets too hot, memory or a drive is nearly full, ping
   spikes, or a website goes down or its certificate is about to expire, after it has lasted 5 seconds. Tap it to hide those alerts for 10 minutes. Thresholds in Settings → Alerts.
+- **Background picture**: Settings → Appearance → *Background picture* puts your own picture behind the tiles (dimmed
+  by the amount you choose, so text stays readable). Best with see-through themes such as Glass and Aurora.
 - **Day and night**: pick a day theme and a night theme with start times (Settings → Appearance).
 - **Animations**: drifting petals (Sakura), a scan line (Futuristic), glitch slivers (Cyberpunk), neon flicker (Tokyo Neon),
   slow mist (Sumi-e, Modern). They also help against burn-in. Switch off in Settings → Appearance. On Linux they pause
@@ -296,11 +300,29 @@ board; a certificate expiring within 14 days (domain: 28 days) gives a warning. 
 - **Language**: English or Norwegian (bokmål), Settings → Appearance → Language ("Automatic" follows Windows / your
   desktop). Dates use the language too ("torsdag 8. oktober"). Translations are `Lang/nb.json` files of
   `"English": "norsk"` pairs; missing entries stay English, so adding a language is one file.
+- **Your own language**: Settings → Appearance → *Translate Shoji* writes every text to `lang/template.json` in the
+  data folder. Save a copy as your language's code (`de.json`, `fr.json`, `pt-br.json`), set `"@language"` to its name
+  ("Deutsch") and fill in the translations; it then shows up in the Language list. Untranslated texts stay English,
+  so you can do it bit by bit. A file named like a built-in language (`nb.json`) overrides just the texts it has.
+  Send the file in as a pull request (`src/Shoji/Lang/`) and it ships with the next version.
 - **Night mode** (Settings → Appearance): between two times the dashboard dims to the brightness you pick, or goes fully
   black at 0 % (as good as off, and kind to OLED panels). A tap brings it back to full brightness for a few seconds; that
   first tap never presses anything.
 - **Saves power when nobody can see it**: animations, gauges and Mirror tiles pause while the display is off, the PC is
   locked (Windows; on Linux the GNOME/KDE lock screen) or night mode is black, and pick up again when it comes back.
+
+## Smart home (MQTT)
+
+Settings → Phone dashboard → *Send this PC's readings to your smart home*: fill in your MQTT broker (the Mosquitto
+add-on of Home Assistant, for example) and Shoji sends, every 10 seconds, one JSON message to `shoji/<pc-name>/state`:
+CPU / GPU load, temperature and power, memory, whole-PC power and today's energy, FPS, ping, network speed, the app in
+focus, whether a full-screen app (a game) is running and whether you're at the PC. Readings come from the tiles you
+use, so a reading without a tile is left out. `shoji/<pc-name>/status` says `online` / `offline` (also after a crash
+or power cut).
+
+With *Announce to Home Assistant* on (the default) the PC appears there as a device with all of these as sensors, no
+YAML needed. Then automate: dim the lights when a game starts, switch a fan on when the GPU passes 80°, turn the desk
+off when the PC goes offline. Shoji only sends: it never takes commands over MQTT.
 
 ## Phone / tablet dashboard
 
@@ -651,9 +673,9 @@ catalog, scenes, alerts, weather, websites, integrations, web server, themes, la
 
 ## Theme regression tests
 
-`scripts/theme-regression.sh` renders every theme on six test pages (`tests/regression/config`), plus Midnight and Sakura in portrait, with fixed demo
+`scripts/theme-regression.sh` renders every theme on seven test pages (`tests/regression/config`), plus Midnight and Sakura in portrait, with fixed demo
 data and a frozen clock, using the Linux edition's headless renderer, and compares each picture with
-`tests/regression/baselines/` (180 pictures, ~2 minutes). It writes a report with the differences highlighted and
+`tests/regression/baselines/` (210 pictures, ~2 minutes). It writes a report with the differences highlighted and
 exits 1 when something changed. After an intended visual change, run it with `--update`; `--themes matcha,tokyo`
 and `--pages 1,3` narrow it down. Needs gcc and python3 with Pillow. Baselines depend on the machine's fonts, so a
 new machine starts with `--update`.

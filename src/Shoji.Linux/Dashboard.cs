@@ -46,6 +46,7 @@ public sealed class Dashboard : Window, IDashboardHost
     readonly Grid _pagesHost = new();
     readonly Backdrop _backdrop = new();
     readonly ArtLayer _art = new();
+    readonly Wallpaper _wallpaper = new(); // the user's own background picture (UI/Wallpaper.cs)
     readonly AlbumArtBackdrop _cover = new(); // the playing track's cover behind a media page (UI/AlbumArtBackdrop.cs)
     readonly CrtOverlay _crt = new();
     readonly AnimationLayer _animBack = new(front: false), _animFront = new(front: true);
@@ -73,6 +74,8 @@ public sealed class Dashboard : Window, IDashboardHost
     IReadOnlyList<AlertEngine.Alert> _activeAlerts = Array.Empty<AlertEngine.Alert>();
     WebServer? _web;
     string? _webSignature;
+    MqttPublisher? _mqtt;
+    string? _mqttSignature;
     Snapshot? _last;
     Point? _swipeStart;
 
@@ -113,6 +116,7 @@ public sealed class Dashboard : Window, IDashboardHost
         var layers = new Grid();
         layers.Children.Add(_backdrop);
         layers.Children.Add(_art);
+        layers.Children.Add(_wallpaper);
         layers.Children.Add(_cover);
         layers.Children.Add(_animBack);
         layers.Children.Add(root);
@@ -213,6 +217,7 @@ public sealed class Dashboard : Window, IDashboardHost
         }
 
         UpdateWebServer();
+        UpdateMqtt();
         UpdateWebDeck();
         Build(EffectiveTheme());
         _editor.Refresh(config); // an open tile edit sheet shows the reloaded tile
@@ -232,6 +237,7 @@ public sealed class Dashboard : Window, IDashboardHost
         Background = UI.Theme.WindowBackground;
         _backdrop.InvalidateVisual();
         _art.Restart();
+        _wallpaper.Update(_config);
         _crt.InvalidateVisual();
 
         int showing = CurrentPageIndex;
@@ -266,6 +272,7 @@ public sealed class Dashboard : Window, IDashboardHost
     {
         _last = s;
         _web?.Publish(s, _appliedTheme);
+        _mqtt?.Publish(s);
         // Nobody at the PC for a while (the screen is probably blanked) or the dashboard minimized: stop the motion,
         // which is most of what the dashboard costs. The first input brings it back within a second.
         // Also while night mode has it black, or the desktop's lock screen / screensaver is up.
@@ -711,6 +718,18 @@ public sealed class Dashboard : Window, IDashboardHost
 
     // ---------------------------------------------------------------- web dashboard
 
+    /// <summary>Starts, restarts or stops the MQTT publisher when its settings changed.</summary>
+    void UpdateMqtt()
+    {
+        var mqtt = _config.Mqtt;
+        string? signature = mqtt.Enabled && !string.IsNullOrWhiteSpace(mqtt.Host) ? mqtt.Signature : null;
+        if (signature == _mqttSignature)
+            return;
+        _mqtt?.Dispose();
+        _mqtt = signature == null ? null : new MqttPublisher(mqtt);
+        _mqttSignature = signature;
+    }
+
     void UpdateWebServer()
     {
         var web = _config.Web;
@@ -812,6 +831,7 @@ public sealed class Dashboard : Window, IDashboardHost
         DisposeModules();
         _collector?.Dispose();
         ServiceStore.DisposeAll();
+        _mqtt?.Dispose();
         _web?.Dispose();
         base.OnClosed(e);
     }

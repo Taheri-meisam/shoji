@@ -65,7 +65,7 @@ public sealed class HomeAssistantModule : OnlineModule
 {
     readonly HomeAssistantService? _ha;
     readonly StackPanel _rows = new();
-    readonly Dictionary<string, (Border Box, TextBlock Name, TextBlock State, Image? Picture)> _views = new();
+    readonly Dictionary<string, (Border Box, TextBlock Name, TextBlock State, Image? Picture, (TextBlock Minus, TextBlock Plus)? Steps)> _views = new();
 
     public HomeAssistantModule(ModuleConfig config, Collector collector) : base(config, "Home")
     {
@@ -97,11 +97,16 @@ public sealed class HomeAssistantModule : OnlineModule
             if (!_views.TryGetValue(e.Id, out var v))
                 _views[e.Id] = v = MakeRow(e);
             v.Name.Text = e.Label;
-            bool on = e.State is "on" or "open" or "unlocked" or "playing" or "home";
-            v.State.Text = e.Domain == "camera" ? "" : e.Unit != null ? $"{e.State} {e.Unit}" : e.State;
-            v.State.Foreground = on ? Theme.Background : e.State is "unavailable" or "not found" || e.State == L.T("not found") ? Theme.Warn : Theme.Text;
+            bool on = e.IsOn;
+            v.State.Text = HaText.State(e);
+            v.State.Foreground = on ? Theme.Background : e.IsProblem ? Theme.Warn : Theme.Text;
             v.Box.Background = on ? Theme.Accent : Theme.Track;
             v.Name.Foreground = on ? Theme.Background : Theme.Text;
+            if (v.Steps != null)
+            {
+                v.Steps.Value.Minus.Foreground = v.Steps.Value.Plus.Foreground = v.Name.Foreground;
+                v.Steps.Value.Minus.Opacity = v.Steps.Value.Plus.Opacity = e.Step > 0 ? 1 : 0.25;
+            }
             // Only decode a camera snapshot when a new one arrived (every ~10 s), not every refresh.
             if (v.Picture != null && e.Image != null && !ReferenceEquals(v.Picture.Tag, e.Image))
             {
@@ -111,15 +116,46 @@ public sealed class HomeAssistantModule : OnlineModule
         }
     }
 
-    (Border, TextBlock, TextBlock, Image?) MakeRow(HaEntity e)
+    (Border, TextBlock, TextBlock, Image?, (TextBlock, TextBlock)?) MakeRow(HaEntity e)
     {
         var name = W.Text(e.Label, Theme.Small + 1);
         var state = W.Text("", Theme.Small + 1);
         state.HorizontalAlignment = HorizontalAlignment.Right;
         var grid = new DockPanel();
-        DockPanel.SetDock(state, Dock.Right);
-        grid.Children.Add(state);
-        grid.Children.Add(name);
+        // Thermostats, numbers and dimmable lights get − and + around the value. The row's own tap (on / off) then
+        // sits on the name only, so a tap on a button never toggles too.
+        (TextBlock Minus, TextBlock Plus)? steps = null;
+        bool toggles = HomeAssistantService.IsToggleable(e.Domain);
+        if (e.Domain is "climate" or "number" or "input_number" || e.Domain == "light" && e.Target != null)
+        {
+            var minus = StepButton("−", e.Id, -1);
+            var plus = StepButton("+", e.Id, +1);
+            DockPanel.SetDock(plus, Dock.Right);
+            grid.Children.Add(plus);
+            DockPanel.SetDock(state, Dock.Right);
+            grid.Children.Add(state);
+            DockPanel.SetDock(minus, Dock.Right);
+            grid.Children.Add(minus);
+            steps = (minus, plus);
+            name.VerticalAlignment = state.VerticalAlignment = VerticalAlignment.Center;
+            name.TextTrimming = TextTrimming.CharacterEllipsis;
+            if (toggles)
+            {
+                var hit = new Border { Background = Brushes.Transparent, Child = name };
+                Tap.On(hit, () => _ = _ha!.ToggleAsync(e.Id));
+                grid.Children.Add(hit);
+            }
+            else
+                grid.Children.Add(name);
+            toggles = false;
+        }
+        else
+        {
+            DockPanel.SetDock(state, Dock.Right);
+            grid.Children.Add(state);
+            name.TextTrimming = TextTrimming.CharacterEllipsis;
+            grid.Children.Add(name);
+        }
 
         Image? picture = null;
         UIElement content = grid;
@@ -134,10 +170,19 @@ public sealed class HomeAssistantModule : OnlineModule
             Child = content, Padding = new Thickness(10, 7, 10, 7), Margin = new Thickness(0, 0, 0, 5),
             CornerRadius = new CornerRadius(square ? 0 : 8), Background = Theme.Track,
         };
-        if (HomeAssistantService.IsToggleable(e.Domain))
+        if (toggles)
             Tap.On(box, () => _ = _ha!.ToggleAsync(e.Id));
         _rows.Children.Add(box);
-        return (box, name, state, picture);
+        return (box, name, state, picture, steps);
+    }
+
+    TextBlock StepButton(string sign, string id, int direction)
+    {
+        var t = W.Text(sign, Theme.Medium, Theme.Text, FontWeights.SemiBold);
+        t.Padding = new Thickness(12, 0, 12, 0);
+        t.VerticalAlignment = VerticalAlignment.Center;
+        t.Background = Brushes.Transparent; // the whole padded area takes the tap, not just the glyph
+        return Tap.On(t, () => _ = _ha!.AdjustAsync(id, direction));
     }
 }
 

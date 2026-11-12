@@ -86,7 +86,59 @@ public abstract class Poller<T> : IDisposable where T : class
 
 // ---------------------------------------------------------------- Home Assistant
 
-public sealed record HaEntity(string Id, string Label, string Domain, string State, string? Unit, byte[]? Image);
+/// <param name="Detail">Extra words for the state: a light's brightness, a blind's position, the song a player plays.</param>
+/// <param name="Current">A thermostat's measured temperature.</param>
+/// <param name="Target">What − / + change: a thermostat's target, a number's value, a light's brightness in percent.</param>
+/// <param name="Step">How much one tap on − / + changes <paramref name="Target"/> (0 = not adjustable).</param>
+public sealed record HaEntity(string Id, string Label, string Domain, string State, string? Unit, byte[]? Image,
+    string? Detail = null, double? Current = null, double? Target = null, double Step = 0)
+{
+    public bool IsOn => Domain == "climate" ? State is not ("off" or "unavailable" or "unknown" or "not found") && !State.StartsWith("HTTP ")
+        : State is "on" or "open" or "unlocked" or "playing" or "home";
+
+    public bool IsProblem => State is "unavailable" or "not found" || State.StartsWith("HTTP ");
+}
+
+/// <summary>How a Home Assistant state reads on the tile, shared by both editions.</summary>
+public static class HaText
+{
+    public static string State(HaEntity e)
+    {
+        if (e.IsProblem)
+            return Word(e.State);
+        switch (e.Domain)
+        {
+            case "camera":
+                return "";
+            case "scene" or "script" or "button" or "input_button":
+                return e.State == "on" ? L.T("Running") : L.T("Run");
+            case "climate":
+                string now = e.Current is double c ? $"{c:0.#}°" : "";
+                if (e.State == "off" || e.Target == null)
+                    return now.Length > 0 ? $"{now} · {Word(e.State)}" : Word(e.State);
+                return now.Length > 0 ? $"{now} → {e.Target:0.#}°" : $"{e.Target:0.#}°";
+        }
+        // A measurement: at most one decimal for long fractions ("21.456789" reads as 21.5).
+        string text = double.TryParse(e.State, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) && !e.State.StartsWith('+')
+            ? (e.State.Contains('.') && e.State.Length - e.State.IndexOf('.') > 3 ? v.ToString(Math.Abs(v) >= 100 ? "0" : "0.#", CultureInfo.CurrentCulture) : e.State)
+            : Word(e.State);
+        if (e.Unit != null)
+            text += " " + e.Unit;
+        return e.Detail != null && e.IsOn ? $"{text} · {e.Detail}" : text;
+    }
+
+    /// <summary>"on" → "On" (translated); anything Home Assistant made up itself stays as it is.</summary>
+    static string Word(string state) => state switch
+    {
+        "on" => L.T("On", "state"), "off" => L.T("Off", "state"), "open" => L.T("Open", "state"), "closed" => L.T("Closed", "state"),
+        "opening" => L.T("Opening", "state"), "closing" => L.T("Closing", "state"), "locked" => L.T("Locked", "state"), "unlocked" => L.T("Unlocked", "state"),
+        "playing" => L.T("Playing", "state"), "paused" => L.T("Paused", "state"), "idle" => L.T("Idle", "state"), "standby" => L.T("Standby", "state"),
+        "home" => L.T("Home", "state"), "not_home" => L.T("Away", "state"), "unavailable" => L.T("Unavailable", "state"), "unknown" => "–",
+        "heat" => L.T("Heating", "state"), "cool" => L.T("Cooling", "state"), "heat_cool" or "auto" => L.T("Auto", "state"), "dry" => L.T("Drying", "state"), "fan_only" => L.T("Fan", "state"),
+        "not found" => L.T("not found", "state"),
+        _ => state.Replace('_', ' '),
+    };
+}
 
 public sealed class HomeAssistantService : Poller<IReadOnlyList<HaEntity>>
 {
@@ -134,15 +186,50 @@ public sealed class HomeAssistantService : Poller<IReadOnlyList<HaEntity>>
                 if (img.IsSuccessStatusCode)
                     image = await img.Content.ReadAsByteArrayAsync(ct);
             }
-            list.Add(new HaEntity(id, name, Domain(id), root.GetProperty("state").GetString() ?? "", unit, image));
+            string state = root.GetProperty("state").GetString() ?? "";
+            string? detail = null;
+            double? current = null, target = null;
+            double step = 0;
+            switch (Domain(id))
+            {
+                case "climate":
+                    current = Number(attrs, "current_temperature");
+                    target = Number(attrs, "temperature");
+                    step = target == null ? 0 : Number(attrs, "target_temp_step") ?? 0.5;
+                    break;
+                case "light" when Number(attrs, "brightness") is double b:
+                    target = Math.Round(b / 255 * 100);
+                    detail = $"{target:0}%";
+                    step = state == "on" ? 10 : 0;
+                    break;
+                case "cover" when Number(attrs, "current_position") is double pos:
+                    detail = $"{pos:0}%";
+                    break;
+                case "media_player":
+                    string title = Text(attrs, "media_title"), artist = Text(attrs, "media_artist");
+                    detail = title.Length == 0 ? null : artist.Length == 0 ? title : $"{artist} – {title}";
+                    break;
+                case "number" or "input_number" when double.TryParse(state, NumberStyles.Float, CultureInfo.InvariantCulture, out double n):
+                    target = n;
+                    step = Number(attrs, "step") ?? 1;
+                    break;
+            }
+            list.Add(new HaEntity(id, name, Domain(id), state, unit, image, detail, current, target, step));
         }
         return list;
     }
 
     static string Domain(string id) => id.Split('.')[0];
 
+    static double? Number(JsonElement attrs, string name) =>
+        attrs.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
+
+    static string Text(JsonElement attrs, string name) =>
+        attrs.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
     public static bool IsToggleable(string domain) =>
-        domain is "light" or "switch" or "fan" or "input_boolean" or "cover" or "scene" or "script" or "automation" or "lock" or "media_player";
+        domain is "light" or "switch" or "fan" or "input_boolean" or "cover" or "scene" or "script" or "automation" or "lock" or "media_player"
+            or "climate" or "button" or "input_button" or "humidifier" or "siren" or "vacuum" or "valve";
 
     /// <summary>Toggles a light/switch/…, or runs a scene/script.</summary>
     public async Task ToggleAsync(string id)
@@ -151,20 +238,53 @@ public sealed class HomeAssistantService : Poller<IReadOnlyList<HaEntity>>
         string service = domain switch
         {
             "scene" or "script" => $"{domain}/turn_on",
+            "button" or "input_button" => $"{domain}/press",
+            "climate" => State?.FirstOrDefault(e => e.Id == id)?.State == "off" ? "climate/turn_on" : "climate/turn_off",
             "lock" => State?.FirstOrDefault(e => e.Id == id)?.State == "locked" ? "lock/unlock" : "lock/lock",
             "media_player" => "media_player/media_play_pause",
             _ => $"{domain}/toggle",
         };
+        await CallAsync(service, new Dictionary<string, object> { ["entity_id"] = id });
+    }
+
+    /// <summary>One tap on − (−1) or + (+1): a thermostat's target, a number's value or a light's brightness.</summary>
+    public async Task AdjustAsync(string id, int direction)
+    {
+        var e = State?.FirstOrDefault(x => x.Id == id);
+        if (e?.Target is not double target || e.Step <= 0)
+            return;
+        var data = new Dictionary<string, object> { ["entity_id"] = id };
+        string service;
+        switch (e.Domain)
+        {
+            case "climate":
+                service = "climate/set_temperature";
+                data["temperature"] = Math.Round(target + direction * e.Step, 2);
+                break;
+            case "light":
+                service = "light/turn_on";
+                data["brightness_pct"] = Math.Clamp(target + direction * e.Step, 1, 100);
+                break;
+            default:
+                service = e.Domain + "/set_value";
+                data["value"] = Math.Round(target + direction * e.Step, 4);
+                break;
+        }
+        await CallAsync(service, data);
+    }
+
+    async Task CallAsync(string service, Dictionary<string, object> data)
+    {
         try
         {
             using var r = Request(HttpMethod.Post, "/api/services/" + service);
-            r.Content = new StringContent(JsonSerializer.Serialize(new { entity_id = id }), Encoding.UTF8, "application/json");
+            r.Content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
             using var resp = await Http.SendAsync(r);
             resp.EnsureSuccessStatusCode();
         }
         catch (Exception ex)
         {
-            Log.Write($"Home Assistant {service} {id} failed: {ex.Message}");
+            Log.Write($"Home Assistant {service} {data["entity_id"]} failed: {ex.Message}");
         }
         Refresh();
     }

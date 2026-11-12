@@ -198,7 +198,7 @@ public static class Demo
                 {
                     "/calendar.ics" => Calendar(),
                     "/value.json" => "{\"visitors\": 1287, \"outside\": {\"temp\": 12.4}, \"status\": \"All systems go\"}",
-                    _ => null,
+                    _ => uri.AbsolutePath.StartsWith("/api/states/", StringComparison.Ordinal) ? HomeState(uri.AbsolutePath["/api/states/".Length..]) : null,
                 };
                 if (body != null)
                     return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8) });
@@ -206,6 +206,19 @@ public static class Demo
             throw new HttpRequestException("demo mode: no network");
         }
     }
+
+    /// <summary>A small made-up home for the Home Assistant tile.</summary>
+    static string? HomeState(string id) => id switch
+    {
+        "light.desk" => "{\"state\":\"on\",\"attributes\":{\"friendly_name\":\"Desk lamp\",\"brightness\":153}}",
+        "climate.living" => "{\"state\":\"heat\",\"attributes\":{\"friendly_name\":\"Living room\",\"current_temperature\":21.3,\"temperature\":22,\"target_temp_step\":0.5}}",
+        "scene.movie" => "{\"state\":\"2026-10-07T20:11:02+00:00\",\"attributes\":{\"friendly_name\":\"Movie night\"}}",
+        "media_player.tv" => "{\"state\":\"playing\",\"attributes\":{\"friendly_name\":\"TV\",\"media_title\":\"Blue in Green\",\"media_artist\":\"Miles Davis\"}}",
+        "cover.blinds" => "{\"state\":\"open\",\"attributes\":{\"friendly_name\":\"Blinds\",\"current_position\":40}}",
+        "sensor.energy_today" => "{\"state\":\"3.456789\",\"attributes\":{\"friendly_name\":\"Energy today\",\"unit_of_measurement\":\"kWh\"}}",
+        "lock.door" => "{\"state\":\"locked\",\"attributes\":{\"friendly_name\":\"Front door\"}}",
+        _ => null,
+    };
 
     /// <summary>A few events around <see cref="Now"/> (floating local times), for the agenda, calendar and clock tiles.</summary>
     static string Calendar()

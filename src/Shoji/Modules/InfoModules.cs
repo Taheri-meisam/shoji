@@ -191,6 +191,141 @@ public sealed class DisksModule : Module
     }
 }
 
+/// <summary>Each drive's own verdict on its health (SMART), with wear, running time and temperature.</summary>
+public sealed class DriveHealthModule : Module
+{
+    readonly DriveHealthService _service = ServiceStore.Get(DriveHealthService.Key, () => new DriveHealthService());
+    readonly StackPanel _list = new();
+    readonly List<(TextBlock Name, TextBlock State, TextBlock Details)> _rows = new();
+    readonly TextBlock _summary;
+    IReadOnlyList<DriveHealth>? _shown;
+
+    public DriveHealthModule(ModuleConfig config) : base(config, "Drive health")
+    {
+        _summary = W.Text(L.T("Checking the drives…"), Theme.Small, Theme.Dim);
+        View = MakeTile(new ScrollViewer { Content = _list, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow(), _summary);
+    }
+
+    public override void Update(Snapshot s)
+    {
+        var drives = _service.State;
+        if (drives == null)
+        {
+            if (_service.Error != null)
+                _summary.Text = L.T("Can't read the drives");
+            return;
+        }
+        if (ReferenceEquals(drives, _shown))
+            return; // a new list only arrives every ten minutes
+        _shown = drives;
+
+        while (_rows.Count < drives.Count)
+        {
+            var row = W.Row("", out var state, out var name);
+            name.Foreground = Theme.Text;
+            var details = W.Text("", Theme.Small, Theme.Dim);
+            details.TextTrimming = TextTrimming.CharacterEllipsis;
+            details.Margin = new Thickness(0, 0, 0, 7);
+            _list.Children.Add(row);
+            _list.Children.Add(details);
+            _rows.Add((name, state, details));
+        }
+        while (_rows.Count > drives.Count)
+        {
+            _rows.RemoveAt(_rows.Count - 1);
+            _list.Children.RemoveRange(_list.Children.Count - 2, 2);
+        }
+        for (int i = 0; i < drives.Count; i++)
+        {
+            var d = drives[i];
+            var (name, state, details) = _rows[i];
+            name.Text = d.Name;
+            state.Text = DriveHealthText.State(d.State);
+            state.Foreground = d.State switch { DriveState.Good => Theme.Good, DriveState.Watch => Theme.Warn, DriveState.Failing => Theme.Crit, _ => Theme.Dim };
+            details.Text = d.Problem == null ? DriveHealthText.Details(d) : d.Problem + " · " + DriveHealthText.Details(d);
+        }
+        _summary.Text = DriveHealthText.Summary(drives);
+        _summary.Foreground = drives.Any(d => d.State == DriveState.Failing) ? Theme.Crit : drives.Any(d => d.State == DriveState.Watch) ? Theme.Warn : Theme.Dim;
+    }
+}
+
+/// <summary>How much Claude Code and Codex were used on this PC: tokens in the last 5 and 24 hours, per model, per hour.</summary>
+public sealed class AiUsageModule : Module
+{
+    readonly AiUsageService _service = ServiceStore.Get(AiUsageService.Key, () => new AiUsageService());
+    readonly TextBlock _five, _day, _note;
+    readonly RowList _limits = new(withBar: true), _rows = new();
+    readonly HourBars _bars = new() { MinHeight = 22, Margin = new Thickness(0, 6, 0, 0) };
+    AiUsage? _shown;
+    DateTime _shownAt;
+
+    public AiUsageModule(ModuleConfig config) : base(config, "AI usage")
+    {
+        _note = W.Text(L.T("Reading the logs…"), Theme.Small, Theme.Dim);
+        var stats = W.Columns(W.Stat("tokens, last 5 hours", out _five), W.Stat("last 24 hours", out _day));
+        _five.Text = _day.Text = "–";
+        _limits.Margin = new Thickness(0, 5, 0, 0);
+        View = MakeTile(Body(_bars.ShowFrom(Density.Normal), stats, _limits, _rows.ShowFrom(Density.Normal)), _note);
+    }
+
+    public override void Update(Snapshot s)
+    {
+        var u = _service.State;
+        // New numbers arrive once a minute; the "resets in" texts are refreshed on the same beat.
+        if (u == null || ReferenceEquals(u, _shown) && (s.Time - _shownAt).Duration() < TimeSpan.FromSeconds(30))
+            return;
+        _shown = u;
+        _shownAt = s.Time;
+        if (!u.Found)
+        {
+            _note.Text = L.T("No Claude Code or Codex on this PC");
+            return;
+        }
+        _five.Text = AiUsageText.Tokens(u.Tokens5h);
+        _day.Text = AiUsageText.Tokens(u.Tokens24h);
+        _note.Text = "5 h · 24 h";
+
+        var now = s.Time.ToUniversalTime();
+        for (int i = 0; i < u.Limits.Count; i++)
+        {
+            var l = u.Limits[i];
+            string resets = AiUsageText.Resets(l.ResetsAt, now);
+            _limits.Set(i, l.Label, resets.Length > 0 ? $"{l.UsedPercent:0}% · {resets}" : $"{l.UsedPercent:0}%", l.UsedPercent);
+        }
+        _limits.Trim(u.Limits.Count);
+
+        int row = 0;
+        _rows.Set(row++, L.T("Answers"), $"{u.Messages5h.ToString(L.Culture)} · {u.Messages24h.ToString(L.Culture)}");
+        _rows.Set(row++, L.T("Written"), $"{AiUsageText.Tokens(u.Output5h)} · {AiUsageText.Tokens(u.Output24h)}");
+        foreach (var m in u.Models.Take(4))
+            _rows.Set(row++, m.Model, $"{AiUsageText.Tokens(m.Tokens5h)} · {AiUsageText.Tokens(m.Tokens24h)}");
+        _rows.Trim(row);
+
+        _bars.Data = u.Hourly;
+        _bars.InvalidateVisual();
+    }
+
+    /// <summary>One bar per hour of the last 24, the running hour on the right in the accent colour.</summary>
+    sealed class HourBars : FrameworkElement
+    {
+        public IReadOnlyList<double> Data = Array.Empty<double>();
+
+        protected override void OnRender(DrawingContext dc)
+        {
+            double w = ActualWidth, h = ActualHeight;
+            int n = Data.Count;
+            if (w <= 0 || h <= 0 || n == 0)
+                return;
+            double max = Math.Max(1, Data.Max()), slot = w / n, bar = Math.Max(1, slot - Math.Min(3, slot * 0.25));
+            for (int i = 0; i < n; i++)
+            {
+                double bh = Data[i] <= 0 ? 1.5 : Math.Max(2, Data[i] / max * h);
+                dc.DrawRectangle(Data[i] <= 0 ? Theme.Track : i == n - 1 ? Theme.Accent : Theme.Dim, null, new Rect(i * slot, h - bh, bar, bh));
+            }
+        }
+    }
+}
+
 public sealed class ProcessesModule : Module
 {
     readonly RowList _list = new();

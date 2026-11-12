@@ -387,6 +387,34 @@
           }
         }
       ]
+    },
+    {
+      "Name": "Home",
+      "Columns": 0,
+      "Modules": [
+        {
+          "Type": "homeassistant",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Url": "https://demo.shoji.invalid",
+            "Token": "demo",
+            "Entities": "light.desk, climate.living, scene.movie, media_player.tv, cover.blinds, sensor.energy_today, lock.door"
+          }
+        },
+        {
+          "Type": "drivehealth",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {}
+        },
+        {
+          "Type": "aiusage",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {}
+        }
+      ]
     }
   ],
   "PageCycleSeconds": 0,

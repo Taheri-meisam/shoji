@@ -157,6 +157,11 @@ public sealed partial class SettingsWindow
         var languages = L.Languages;
         Setting(card, "Language", "Of the dashboard and these settings", Combo(languages.Select(l => l.Id == "auto" ? L.T(l.Name) : l.Name).ToList(),
             Math.Max(0, languages.ToList().FindIndex(l => l.Id == (config.Language ?? "auto").Trim().ToLowerInvariant())), i => Change(c => c.Language = languages[i].Id, rebuild: true)), icon: "translate");
+        Setting(card, "Translate Shoji", "Writes every text to lang/template.json in the data folder. Save it as your language's code (de.json, fr.json…), fill in the translations and pick it above.", Button("Make a template", () =>
+        {
+            try { App.Open(System.IO.Path.GetDirectoryName(L.WriteTemplate())!); }
+            catch (Exception ex) { Log.Write($"Translation template: {ex.Message}"); }
+        }), icon: "edit_note");
         Setting(card, "Show on", "Which screen the dashboard fills", Combo(monitorNames, monitorIndex, i => Change(c => c.Monitor = monitorValues[i])), icon: "monitor");
         var refresh = new[] { 500, 1000, 2000, 5000 };
         Setting(card, "Refresh every", null, Segmented(new[] { "0.5 s", "1 s", "2 s", "5 s" }, Nearest(refresh.Select(r => (double)r).ToList(), config.RefreshMs), i => Change(c => c.RefreshMs = refresh[i])), icon: "refresh");
@@ -165,6 +170,21 @@ public sealed partial class SettingsWindow
         Setting(card, "Columns", "Pages can override this", Combo(new[] { L.T("Automatic"), "1", "2", "3", "4", "5", "6" }, Math.Clamp(config.Columns, 0, 6), i => Change(c => c.Columns = i)), icon: "view_column");
         Setting(card, "Animations", "Drifting petals, aurora, neon flicker, scan lines, weather", Switch(config.Animations, v => Change(c => c.Animations = v)), icon: "animation");
         Setting(card, "Album art backdrop", "The playing song's cover, blurred, behind a page with Now playing", Switch(config.AlbumArtBackdrop, v => Change(c => c.AlbumArtBackdrop = v)), icon: "album");
+        var picture = TextField(config.BackgroundImage, 240, v => Change(c => c.BackgroundImage = v), "A picture file on this PC (JPG, PNG, WebP). Empty = the theme's own backdrop");
+        var choose = Button("Choose…", async () =>
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+            {
+                Title = L.T("Background picture"), AllowMultiple = false, FileTypeFilter = new[] { Avalonia.Platform.Storage.FilePickerFileTypes.ImageAll },
+            });
+            if (files.Count > 0 && Avalonia.Platform.Storage.StorageProviderExtensions.TryGetLocalPath(files[0]) is { } path)
+                Change(c => c.BackgroundImage = path, rebuild: true);
+        });
+        var pick = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        pick.Children.Add(picture);
+        pick.Children.Add(choose);
+        Setting(card, "Background picture", "Your own picture behind the tiles; best with see-through themes such as Glass and Aurora", pick, icon: "image");
+        Setting(card, "Picture dimming", "Percent of the theme's background colour over the picture, so text stays readable", Number(config.BackgroundImageDim, v => Change(c => c.BackgroundImageDim = (int)Math.Clamp(v, 0, 95))), icon: "brightness_medium");
         Setting(card, "Pixel shift", "Moves the layout a few pixels now and then against OLED burn-in", Switch(config.PixelShift, v => Change(c => c.PixelShift = v)), icon: "grain");
         Setting(card, "Always on top", null, Switch(config.Topmost, v => Change(c => c.Topmost = v)), last: true, icon: "push_pin");
     }
@@ -624,6 +644,26 @@ public sealed partial class SettingsWindow
         right.Children.Add(row);
         grid.Children.Add(right);
         ((StackPanel)connect.Child!).Children.Add(grid);
+    }
+
+    // ================================================================ Smart home (MQTT)
+
+    void AddMqtt(AppConfig config)
+    {
+        var m = config.Mqtt;
+        var card = Card();
+        card.Margin = new Thickness(0, 26, 0, 10);
+        string? status = !m.Enabled ? "Home Assistant and other smart-home systems can then show them and act on them"
+            : string.IsNullOrWhiteSpace(m.Host) ? "Fill in the broker's address below" : MqttPublisher.LastStatus ?? "Connecting…";
+        Setting(card, "Send this PC's readings to your smart home (MQTT)", status, Switch(m.Enabled, v => Change(c => c.Mqtt.Enabled = v, rebuild: true)), icon: "home");
+        Setting(card, "Broker", "Address of the MQTT broker, e.g. homeassistant.local", TextField(m.Host, 220, v => Change(c => c.Mqtt.Host = v, rebuild: true)), icon: "lan");
+        Setting(card, "Broker port", "Usually 1883, or 8883 when encrypted", TextField(m.Port.ToString(), 90, v => Change(c => c.Mqtt.Port = int.TryParse(v, out int n) && n is > 0 and < 65536 ? n : 1883, rebuild: true)), icon: "lan");
+        Setting(card, "Encrypted connection (TLS)", null, Switch(m.Tls, v => Change(c => c.Mqtt.Tls = v, rebuild: true)), icon: "lock");
+        Setting(card, "User name", "Leave empty if the broker doesn't ask for one", TextField(m.User, 180, v => Change(c => c.Mqtt.User = v, rebuild: true)), icon: "person");
+        Setting(card, "Password", "Kept in Shoji's settings file on this PC", TextField(m.Password, 180, v => Change(c => c.Mqtt.Password = v, rebuild: true)), icon: "lock");
+        Setting(card, "Topic", L.F("Empty = {0}", MqttPublisher.DefaultTopic), TextField(m.Topic, 220, v => Change(c => c.Mqtt.Topic = v, rebuild: true)), icon: "label");
+        Setting(card, "Announce to Home Assistant", "The readings show up there as a device by themselves (MQTT discovery)", Switch(m.Discovery, v => Change(c => c.Mqtt.Discovery = v, rebuild: true)), last: true, icon: "home");
+        _panel.Children.Add(Hint("Every 10 seconds: CPU, GPU, memory, power, FPS, ping and network speed (for the tiles you use), the app in focus, whether a full-screen app such as a game is running, and whether you're at the PC. Use them in automations: dim the lights when a game starts, switch a fan on when the GPU gets hot. Shoji only sends; it never takes commands over MQTT."));
     }
 
     // ================================================================ Hardware
