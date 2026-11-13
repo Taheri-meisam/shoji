@@ -234,6 +234,15 @@ Settings → Pages & tiles → *Hold a tile to edit it on the dashboard*.
 `shoji1:…` code. *Import layout…* shows what's inside (pages, tiles, theme, deck buttons that launch programs), then
 adds the pages or replaces yours. Tokens, keys, passwords and calendar links are never included.
 
+**Changing page**: swipe or drag sideways (a quick flick is enough), tap a dot at the bottom, turn the mouse wheel
+(where no list is under the pointer; sideways on a touchpad), press ← / → or Page Up / Page Down (Home, End and 1–9
+jump), or use the mouse's back / forward buttons. With a mouse, an arrow appears when the pointer nears the left or
+right edge.
+
+**Settings and closing**: move the mouse to the top right corner of the dashboard and two buttons appear, *Settings*
+and *Close* (quits Shoji). A right click anywhere, or holding a finger in that corner, brings them up too. The tray
+icon's menu has the same and more, on desktops that show one.
+
 ## Scenes
 
 A scene says "when *this* happens, show *that* page (and optionally use *that* theme)". Conditions: the app in focus
@@ -297,7 +306,7 @@ board; a certificate expiring within 14 days (domain: 28 days) gives a warning. 
   slow mist (Sumi-e, Modern). They also help against burn-in. Switch off in Settings → Appearance. On Linux they pause
   after 10 minutes without input and while the dashboard is minimized.
 - **Status board**: caution lamps blink until you tap the tile; they stay lit while the problem lasts.
-- **Language**: English or Norwegian (bokmål), Settings → Appearance → Language ("Automatic" follows Windows / your
+- **Language**: English, Norwegian (bokmål) or Japanese, Settings → Appearance → Language ("Automatic" follows Windows / your
   desktop). Dates use the language too ("torsdag 8. oktober"). Translations are `Lang/nb.json` files of
   `"English": "norsk"` pairs; missing entries stay English, so adding a language is one file.
 - **Your own language**: Settings → Appearance → *Translate Shoji* writes every text to `lang/template.json` in the
@@ -712,7 +721,7 @@ src/Shoji.Linux/      the Linux edition (Avalonia): Dashboard, tray app, Linux s
 - **FPS shows "needs admin".** The FPS counter reads Windows' graphics events, which needs admin rights
   (tray → Restart as admin, or Enable CPU temperature). Vulkan / OpenGL games that don't present through DirectX aren't counted.
 - **A deck hotkey does nothing in a game.** If the game runs as admin, Shoji has to as well.
-- **Swiping changes page when I meant to tap.** Swipes need a clear sideways move (about 70 px); short drags snap back.
+- **Swiping changes page when I meant to tap.** Swipes need a clear sideways move (about 70 px, less on a narrow screen) or a quick flick; short slow drags snap back.
 - **CPU clock shows "–" without admin.** Windows performance counters are disabled or damaged;
   `lodctr /r` in an admin command prompt rebuilds them.
 - **Something looks broken.** Check `log.txt` in the settings folder (tray → Open data folder).

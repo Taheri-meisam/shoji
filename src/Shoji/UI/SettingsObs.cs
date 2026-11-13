@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -16,7 +17,7 @@ public sealed partial class SettingsWindow
         Setting(card, L.T("Host"), L.T("localhost when OBS runs on this PC"), TextField(obs.Host, 200, v => Change(c => c.Obs.Host = v ?? "localhost")), icon: "\uE774");
         Setting(card, L.T("Port"), null, TextField(obs.Port.ToString(), 90, v => Change(c => c.Obs.Port = int.TryParse(v, out int n) && n is > 0 and < 65536 ? n : 4455),
             check: v => (v == null || int.TryParse(v, out int n) && n is > 0 and < 65536, v ?? "4455"), invalidHint: L.T("A port number (OBS uses 4455): this wasn't saved")), icon: "\uE839");
-        Setting(card, L.T("Password"), L.T("From OBS → Tools → WebSocket Server Settings → Show Connect Info. Empty if authentication is off."), ObsPassword(obs.Password), icon: "\uE72E");
+        Setting(card, L.T("Password"), L.T("From OBS → Tools → WebSocket Server Settings → Show Connect Info. Empty if authentication is off."), PasswordField(obs.Password, 200, v => Change(c => c.Obs.Password = v)), icon: "\uE72E");
 
         var status = Ref(new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxWidth = 360, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) }, TextBlock.ForegroundProperty, TextSecondary);
         Button? test = null;
@@ -37,10 +38,10 @@ public sealed partial class SettingsWindow
                                  "Targets: record, pause, stream, replay (saves the replay buffer), replaybuffer, virtualcam, scene:Name, mute:Mic/Aux.")));
     }
 
-    /// <summary>A masked box for the OBS password; saved when it loses focus or on Enter.</summary>
-    FrameworkElement ObsPassword(string? value)
+    /// <summary>A masked box for a password; saved when it loses focus or on Enter (empty = null).</summary>
+    FrameworkElement PasswordField(string? value, double width, Action<string?> save)
     {
-        var box = new PasswordBox { Password = value ?? "", Width = 200, VerticalContentAlignment = VerticalAlignment.Center };
+        var box = new PasswordBox { Password = value ?? "", Width = width, VerticalContentAlignment = VerticalAlignment.Center };
         string last = box.Password;
         void Commit()
         {
@@ -49,7 +50,7 @@ public sealed partial class SettingsWindow
                 return;
             last = box.Password;
             string password = box.Password;
-            Change(c => c.Obs.Password = password.Length == 0 ? null : password);
+            save(password.Length == 0 ? null : password);
         }
         box.PasswordChanged += (_, _) =>
         {

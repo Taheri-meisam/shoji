@@ -128,27 +128,91 @@ public sealed partial class SettingsWindow
     }
 
     /// <summary>One row in a card: optional icon, label (and description), the control on the right, a divider below.</summary>
-    static void Setting(Border card, string label, string? description, Control control, bool last = false, string? icon = null)
+    /// <summary><paramref name="code"/>: a command to copy, shown under the description in its own monospace block.</summary>
+    static void Setting(Border card, string label, string? description, Control control, bool last = false, string? icon = null, string? code = null)
     {
-        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
+        var text = new StackPanel();
         text.Children.Add(new TextBlock { Text = L.T(label), TextWrapping = TextWrapping.Wrap, Foreground = Look.Text1 });
         if (description != null)
             text.Children.Add(new TextBlock { Text = L.T(description), FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 1, 0, 0), Foreground = Look.Text2 });
-        control.VerticalAlignment = VerticalAlignment.Center;
-        var row = new DockPanel { Margin = new Thickness(0, 12), LastChildFill = true };
-        if (icon != null)
-        {
-            var glyph = new TextBlock { Text = icon, FontFamily = UI.Theme.Icons, FontSize = 20, Width = 24, Margin = new Thickness(0, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center, Foreground = Look.Text2 };
-            DockPanel.SetDock(glyph, Dock.Left);
-            row.Children.Add(glyph);
-        }
-        DockPanel.SetDock(control, Dock.Right);
-        row.Children.Add(control);
-        row.Children.Add(text);
+        if (code != null)
+            text.Children.Add(new Border
+            {
+                Background = Look.Input, CornerRadius = new CornerRadius(6), Padding = new Thickness(9, 6, 9, 7), Margin = new Thickness(0, 6, 0, 0), HorizontalAlignment = HorizontalAlignment.Left,
+                Child = new SelectableTextBlock { Text = code, FontSize = 12, TextWrapping = TextWrapping.Wrap, Foreground = Look.Text1, FontFamily = new FontFamily("Ubuntu Mono, DejaVu Sans Mono, Noto Sans Mono, Liberation Mono, monospace") },
+            });
+        TextBlock? glyph = icon == null ? null
+            : new TextBlock { Text = icon, FontFamily = UI.Theme.Icons, FontSize = 20, Width = 24, Margin = new Thickness(0, 0, 14, 0), TextAlignment = TextAlignment.Center, Foreground = Look.Text2 };
         var inner = (StackPanel)card.Child!;
-        inner.Children.Add(row);
+        inner.Children.Add(new SettingRow(glyph, text, control) { Margin = new Thickness(0, 12) });
         if (!last)
             inner.Children.Add(new Border { Height = 1, Background = Look.Divider });
+    }
+
+    /// <summary>
+    /// A settings row: icon, text, and the control on the right. When the row is too narrow to leave the text a
+    /// readable width (a small window, a wide control), the control moves under the text instead of squeezing it.
+    /// </summary>
+    sealed class SettingRow : Panel
+    {
+        const double MinText = 190, Gap = 16, StackGap = 8;
+        readonly Control? _icon;
+        readonly Control _text, _control;
+        bool _stacked;
+
+        public SettingRow(Control? icon, Control text, Control control)
+        {
+            _icon = icon;
+            _text = text;
+            _control = control;
+            if (icon != null)
+                Children.Add(icon);
+            Children.Add(text);
+            Children.Add(control);
+        }
+
+        protected override Size MeasureOverride(Size available)
+        {
+            var open = new Size(double.PositiveInfinity, double.PositiveInfinity);
+            _icon?.Measure(open);
+            double iconW = _icon?.DesiredSize.Width ?? 0, iconH = _icon?.DesiredSize.Height ?? 0;
+            _control.Measure(open);
+            double controlW = _control.DesiredSize.Width;
+            if (double.IsInfinity(available.Width))
+            {
+                _stacked = false;
+                _text.Measure(open);
+                return new Size(iconW + _text.DesiredSize.Width + Gap + controlW, Math.Max(iconH, Math.Max(_text.DesiredSize.Height, _control.DesiredSize.Height)));
+            }
+            double room = Math.Max(0, available.Width - iconW);
+            _stacked = room - controlW - Gap < MinText;
+            if (_stacked)
+            {
+                _text.Measure(new Size(room, double.PositiveInfinity));
+                _control.Measure(new Size(room, double.PositiveInfinity));
+                return new Size(available.Width, Math.Max(iconH, _text.DesiredSize.Height + StackGap + _control.DesiredSize.Height));
+            }
+            _text.Measure(new Size(room - controlW - Gap, double.PositiveInfinity));
+            return new Size(available.Width, Math.Max(iconH, Math.Max(_text.DesiredSize.Height, _control.DesiredSize.Height)));
+        }
+
+        protected override Size ArrangeOverride(Size final)
+        {
+            double iconW = _icon?.DesiredSize.Width ?? 0, iconH = _icon?.DesiredSize.Height ?? 0;
+            double textH = _text.DesiredSize.Height, controlW = _control.DesiredSize.Width, controlH = _control.DesiredSize.Height;
+            if (_stacked)
+            {
+                double room = Math.Max(0, final.Width - iconW);
+                _icon?.Arrange(new Rect(0, Math.Max(0, (textH - iconH) / 2), iconW, iconH));
+                _text.Arrange(new Rect(iconW, 0, room, textH));
+                _control.Arrange(new Rect(iconW, textH + StackGap, Math.Min(controlW, room), controlH));
+                return final;
+            }
+            _icon?.Arrange(new Rect(0, (final.Height - iconH) / 2, iconW, iconH));
+            _text.Arrange(new Rect(iconW, (final.Height - textH) / 2, Math.Max(0, final.Width - iconW - controlW - Gap), textH));
+            _control.Arrange(new Rect(final.Width - controlW, (final.Height - controlH) / 2, controlW, controlH));
+            return final;
+        }
     }
 
     static Border Chip(string text, bool selected, Action click)

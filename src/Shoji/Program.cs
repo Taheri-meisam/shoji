@@ -96,6 +96,8 @@ public static class Program
             exit: Exit);
         // The tile editor's "More settings…" opens Settings the same way the tray does.
         window.OpenSettings = () => UI.SettingsWindow.Open(tray!.ExportSensors, tray!.EnableCpuSensors, () => window.RecentApps, () => window.CurrentPageIndex);
+        // The dashboard's own Close button (top right corner) does what the tray's Exit does.
+        window.Quit = Exit;
 
         // Install, update and uninstall ask the running copy to exit this way.
         instance.ListenForExit(() => app.Dispatcher.BeginInvoke(Exit));

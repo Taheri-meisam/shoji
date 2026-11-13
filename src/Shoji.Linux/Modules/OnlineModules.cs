@@ -60,6 +60,7 @@ public sealed class HomeAssistantModule : OnlineModule
 {
     readonly HomeAssistantService? _ha;
     readonly StackPanel _rows = new();
+    readonly IBrush _onFill = UI.Theme.Solid(((ISolidColorBrush)UI.Theme.Accent).Color, 0x38);
     readonly Dictionary<string, (Border Box, TextBlock Name, TextBlock State, Image? Picture, (TextBlock Minus, TextBlock Plus)? Steps)> _views = new();
 
     public HomeAssistantModule(ModuleConfig config, LinuxCollector collector) : base(config, "Home")
@@ -94,9 +95,12 @@ public sealed class HomeAssistantModule : OnlineModule
             v.Name.Text = e.Label;
             bool on = e.IsOn;
             v.State.Text = HaText.State(e);
-            v.State.Foreground = on ? UI.Theme.Background : e.IsProblem ? UI.Theme.Warn : UI.Theme.Text;
-            v.Box.Background = on ? UI.Theme.Accent : UI.Theme.Track;
-            v.Name.Foreground = on ? UI.Theme.Background : UI.Theme.Text;
+            // On: an accent tint with an accent edge and value, not a solid accent slab (several lights on would
+            // otherwise outshine everything else on the page).
+            v.State.Foreground = e.IsProblem ? UI.Theme.Warn : on ? UI.Theme.Accent : UI.Theme.Text;
+            v.Box.Background = on ? _onFill : UI.Theme.Track;
+            v.Box.BorderBrush = on ? UI.Theme.Accent : Brushes.Transparent;
+            v.Name.Foreground = UI.Theme.Text;
             if (v.Steps != null)
             {
                 v.Steps.Value.Minus.Foreground = v.Steps.Value.Plus.Foreground = v.Name.Foreground;
@@ -162,8 +166,9 @@ public sealed class HomeAssistantModule : OnlineModule
         var square = UI.Theme.Current.Shape is TileShape.Hud or TileShape.Chamfer;
         var box = new Border
         {
-            Child = content, Padding = new Thickness(10, 7, 10, 7), Margin = new Thickness(0, 0, 0, 5),
+            Child = content, Padding = new Thickness(7, 7, 10, 7), Margin = new Thickness(0, 0, 0, 5),
             CornerRadius = new CornerRadius(square ? 0 : 8), Background = UI.Theme.Track,
+            BorderThickness = new Thickness(3, 0, 0, 0), BorderBrush = Brushes.Transparent,
         };
         if (toggles)
             Tap.On(box, () => _ = _ha!.ToggleAsync(e.Id));

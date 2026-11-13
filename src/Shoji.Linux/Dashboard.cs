@@ -123,6 +123,9 @@ public sealed class Dashboard : Window, IDashboardHost
         layers.Children.Add(_animFront);
         layers.Children.Add(_crt);
         layers.Children.Add(_dots);
+        layers.Children.Add(_edgeLeft);
+        layers.Children.Add(_edgeRight);
+        layers.Children.Add(_corner);
         _editor = new TileEditor(this); // long-press edit sheet (UI/TileEditor.cs), below the alert, toast and night layers
         layers.Children.Add(_editor);
         layers.Children.Add(_alert);
@@ -180,6 +183,14 @@ public sealed class Dashboard : Window, IDashboardHost
         AddHandler(PointerPressedEvent, OnSwipeStart, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, OnSwipeMove, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnSwipeEnd, RoutingStrategies.Tunnel);
+        // Mouse and keyboard ways to change page (the wheel only when no list under it used it).
+        AddHandler(PointerWheelChangedEvent, OnPageWheel, RoutingStrategies.Bubble);
+        AddHandler(PointerPressedEvent, OnPageButtons, RoutingStrategies.Tunnel);
+        KeyDown += OnPageKey;
+        PointerExited += (_, _) => ShowEdges(null);
+        BuildEdge(_edgeLeft, "chevron_left", -1);
+        BuildEdge(_edgeRight, "chevron_right", +1);
+        BuildCorner();
     }
 
     public LinuxCollector? Collector => _collector;
@@ -515,6 +526,192 @@ public sealed class Dashboard : Window, IDashboardHost
     /// <summary>The album-art backdrop follows the track, the page and the setting.</summary>
     void UpdateCover() => _cover.Update(_config, CurrentPage?.Config, _last?.Media);
 
+    // ---------------------------------------------------------------- page changing: wheel, keys, mouse buttons, edge arrows
+
+    readonly Border _edgeLeft = new() { HorizontalAlignment = HorizontalAlignment.Left }, _edgeRight = new() { HorizontalAlignment = HorizontalAlignment.Right };
+    long _lastFlip, _swipeStartedAt;
+
+    /// <summary>One page forward (+1) or back (−1), with the page's name shown briefly.</summary>
+    void Flip(int delta)
+    {
+        if (_pages.Count < 2 || _editor.IsOpen)
+            return;
+        ShowPageIndex(_current + delta);
+        Toast(CurrentPage?.Name ?? "");
+    }
+
+    void OnPageWheel(object? sender, PointerWheelEventArgs e)
+    {
+        // Sideways (a touchpad swipe, a tilting wheel) wins; up / down counts when it's all there is. One page per
+        // gesture: a touchpad sends a burst of small steps.
+        double d = Math.Abs(e.Delta.X) > Math.Abs(e.Delta.Y) ? -e.Delta.X : -e.Delta.Y;
+        long now = Environment.TickCount64;
+        if (Math.Abs(d) < 0.2 || now - _lastFlip < 350 || _pages.Count < 2 || _editor.IsOpen)
+            return;
+        _lastFlip = now;
+        e.Handled = true;
+        Flip(d > 0 ? +1 : -1);
+    }
+
+    /// <summary>The mouse's back / forward thumb buttons.</summary>
+    void OnPageButtons(object? sender, PointerPressedEventArgs e)
+    {
+        var p = e.GetCurrentPoint(this).Properties;
+        if (p.PointerUpdateKind == PointerUpdateKind.XButton1Pressed)
+            Flip(-1);
+        else if (p.PointerUpdateKind == PointerUpdateKind.XButton2Pressed)
+            Flip(+1);
+        else
+            return;
+        e.Handled = true;
+    }
+
+    void OnPageKey(object? sender, KeyEventArgs e)
+    {
+        if (_pages.Count < 2 || _editor.IsOpen || e.KeyModifiers != KeyModifiers.None || e.Source is TextBox)
+            return;
+        switch (e.Key)
+        {
+            case Key.Right or Key.PageDown or Key.Space: Flip(+1); break;
+            case Key.Left or Key.PageUp or Key.Back: Flip(-1); break;
+            case Key.Home: ShowPageIndex(0); break;
+            case Key.End: ShowPageIndex(_pages.Count - 1); break;
+            case >= Key.D1 and <= Key.D9 when e.Key - Key.D1 < _pages.Count: ShowPageIndex(e.Key - Key.D1); break;
+            case >= Key.NumPad1 and <= Key.NumPad9 when e.Key - Key.NumPad1 < _pages.Count: ShowPageIndex(e.Key - Key.NumPad1); break;
+            default: return;
+        }
+        e.Handled = true;
+    }
+
+    /// <summary>An arrow at a screen edge for mouse users: invisible until the pointer comes near that edge.</summary>
+    void BuildEdge(Border edge, string glyph, int delta)
+    {
+        edge.Width = 44;
+        edge.Height = 96;
+        edge.VerticalAlignment = VerticalAlignment.Center;
+        edge.CornerRadius = delta < 0 ? new CornerRadius(0, 14, 14, 0) : new CornerRadius(14, 0, 0, 14);
+        edge.Opacity = 0;
+        edge.IsHitTestVisible = false;
+        edge.Transitions = new Transitions { new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(160) } };
+        edge.Child = new TextBlock { Text = glyph, FontFamily = UI.Theme.Icons, FontSize = 30, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        Tap.On(edge, () => Flip(delta));
+    }
+
+    /// <summary>Shows the arrow of the edge the mouse is near (null = none). A finger never brings them up: it swipes.</summary>
+    void ShowEdges(Point? mouse)
+    {
+        _cornerNear = mouse is { } at && InCorner(at) && !SwipeInProgress;
+        UpdateCorner();
+        bool can = mouse != null && _pages.Count > 1 && !_editor.IsOpen && !SwipeInProgress;
+        double reach = Math.Min(90, Bounds.Width * 0.12);
+        Set(_edgeLeft, can && mouse!.Value.X < reach);
+        Set(_edgeRight, can && mouse!.Value.X > Bounds.Width - reach);
+
+        static void Set(Border edge, bool show)
+        {
+            if (edge.IsHitTestVisible == show)
+                return;
+            edge.IsHitTestVisible = show;
+            if (show)
+            {
+                edge.Background = UI.Theme.Solid(UI.Theme.TileColor, 0xE6);
+                edge.BorderBrush = UI.Theme.Solid(UI.Theme.TextColor, 0x30);
+                edge.BorderThickness = new Thickness(1);
+                ((TextBlock)edge.Child!).Foreground = UI.Theme.Text;
+            }
+            edge.Opacity = show ? 0.92 : 0;
+        }
+    }
+
+    // ---------------------------------------------------------------- the window's own buttons: Settings and Close
+
+    // The dashboard has no title bar, and a stock GNOME desktop shows no tray icon: without these there is nothing
+    // to close it with. Hidden until the mouse comes near the top right corner, a right click anywhere, or a
+    // long press in that corner (touch screens); they go away again by themselves.
+    readonly Border _corner = new() { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 12, 12, 0) };
+    readonly DispatcherTimer _cornerTimer = new() { Interval = TimeSpan.FromSeconds(6) }, _cornerHold = new() { Interval = TimeSpan.FromMilliseconds(650) };
+    bool _cornerNear, _cornerPinned;
+
+    void BuildCorner()
+    {
+        _corner.CornerRadius = new CornerRadius(14);
+        _corner.Padding = new Thickness(4);
+        _corner.BorderThickness = new Thickness(1);
+        _corner.Opacity = 0;
+        _corner.IsHitTestVisible = false;
+        _corner.Transitions = new Transitions { new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(160) } };
+        _corner.Child = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Children =
+            {
+                CornerButton("settings", "Settings", () => UI.SettingsWindow.Open(this)),
+                CornerButton("close", "Quit Shoji", () => (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Shutdown()),
+            },
+        };
+        _cornerTimer.Tick += (_, _) =>
+        {
+            _cornerTimer.Stop();
+            _cornerPinned = false;
+            UpdateCorner();
+        };
+        _cornerHold.Tick += (_, _) =>
+        {
+            _cornerHold.Stop();
+            if (!SwipeInProgress)
+                PinCorner();
+        };
+        AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            var point = e.GetCurrentPoint(this);
+            if (point.Properties.IsRightButtonPressed)
+                PinCorner();
+            else if (point.Properties.IsLeftButtonPressed && InCorner(point.Position) && !_corner.IsHitTestVisible)
+                _cornerHold.Start();
+        }, RoutingStrategies.Tunnel);
+        AddHandler(PointerReleasedEvent, (_, _) => _cornerHold.Stop(), RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
+
+    Border CornerButton(string glyph, string name, Action action)
+    {
+        var b = new Border
+        {
+            Width = 46, Height = 46, CornerRadius = new CornerRadius(10), Background = Brushes.Transparent,
+            Child = new TextBlock { Text = glyph, FontFamily = UI.Theme.Icons, FontSize = 24, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+        };
+        ToolTip.SetTip(b, L.T(name));
+        b.PointerEntered += (_, _) => b.Background = UI.Theme.Solid(UI.Theme.TextColor, 0x24);
+        b.PointerExited += (_, _) => b.Background = Brushes.Transparent;
+        return Tap.On(b, action);
+    }
+
+    bool InCorner(Point p) => p.Y < 110 && p.X > Bounds.Width - Math.Max(220, Bounds.Width * 0.2);
+
+    /// <summary>Shows the buttons for a few seconds wherever the pointer is (right click, long press).</summary>
+    void PinCorner()
+    {
+        _cornerPinned = true;
+        _cornerTimer.Stop();
+        _cornerTimer.Start();
+        UpdateCorner();
+    }
+
+    void UpdateCorner()
+    {
+        bool show = (_cornerNear || _cornerPinned) && !_editor.IsOpen && !_nightDimmed;
+        if (_corner.IsHitTestVisible == show)
+            return;
+        _corner.IsHitTestVisible = show;
+        if (show)
+        {
+            _corner.Background = UI.Theme.Solid(UI.Theme.TileColor, 0xF2);
+            _corner.BorderBrush = UI.Theme.Solid(UI.Theme.TextColor, 0x30);
+            foreach (var child in ((StackPanel)_corner.Child!).Children)
+                ((TextBlock)((Border)child).Child!).Foreground = UI.Theme.Text;
+        }
+        _corner.Opacity = show ? 1 : 0;
+    }
+
     // ---------------------------------------------------------------- swipe
 
     void OnSwipeStart(object? sender, PointerPressedEventArgs e)
@@ -527,11 +724,14 @@ public sealed class Dashboard : Window, IDashboardHost
             if (v is TouchSlider)
                 return;
         _swipeStart = e.GetPosition(this);
+        _swipeStartedAt = Environment.TickCount64;
         SwipeInProgress = false;
     }
 
     void OnSwipeMove(object? sender, PointerEventArgs e)
     {
+        if (e.Pointer.Type == PointerType.Mouse && !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            ShowEdges(e.GetPosition(this));
         if (_swipeStart is not Point start || _pages.Count < 2 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
         var p = e.GetPosition(this);
@@ -542,7 +742,7 @@ public sealed class Dashboard : Window, IDashboardHost
         {
             var transitions = _slide.Transitions;
             _slide.Transitions = null;
-            _slide.X = dx * 0.35; // follow the finger a little
+            _slide.X = dx * 0.6; // follow the finger (or the dragging mouse)
             _slide.Transitions = transitions;
         }
     }
@@ -553,7 +753,10 @@ public sealed class Dashboard : Window, IDashboardHost
         {
             e.Handled = true; // a swipe, not a tap on whatever is underneath
             double dx = e.GetPosition(this).X - start.X;
-            if (Math.Abs(dx) > 70)
+            // Far enough for this screen (a narrow one needs less), or a quick flick.
+            double far = Math.Clamp(Bounds.Width * 0.12, 36, 70);
+            double speed = Math.Abs(dx) / Math.Max(1, Environment.TickCount64 - _swipeStartedAt); // px per ms
+            if (Math.Abs(dx) > far || speed > 0.6 && Math.Abs(dx) > 36)
             {
                 ShowPageIndex(dx < 0 ? _current + 1 : _current - 1);
                 Toast(CurrentPage?.Name ?? "");
@@ -686,7 +889,7 @@ public sealed class Dashboard : Window, IDashboardHost
     // ---------------------------------------------------------------- tile edit sheet (long press, UI/TileEditor.cs)
 
     /// <summary>Holding a tile may open its edit sheet now (switched on, and no sheet open yet).</summary>
-    public bool LongPressEnabled => _config.LongPressEdit && !_editor.IsOpen;
+    public bool LongPressEnabled => _config.LongPressEdit && !_editor.IsOpen && !_corner.IsHitTestVisible; // a hold in the top right corner brought the window buttons up instead
 
     /// <summary>A tile was held: open the edit sheet for it (its page and index in that page's list, hidden tiles included).</summary>
     public void EditTile(Tile tile)

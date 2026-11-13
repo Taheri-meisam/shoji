@@ -447,9 +447,11 @@ public sealed class TapeGauge : Gauge
             dc.DrawRectangle(Alpha((ISolidColorBrush)Zone(x), 0xB0), null, new Rect(x1 + 2, y - k * step / 2, 4, k * step));
             bool major = Math.Abs(x / LabelEvery - Math.Round(x / LabelEvery)) < 1e-6;
             dc.DrawLine(MakePen(major ? P.Fg : P.Dim, 1), new Point(x1 - (major ? 12 : 6), y), new Point(x1, y));
-            // Numbers that would sit half under the value box are left out (the box shows the value anyway).
-            if (major && Math.Abs(y - cy) > bh / 2 + 7)
-                Text(dc, x.ToString("0"), x1 - 16, y, Math.Max(10, Math.Min(14, k * 4)), P.Dim, P.Mono, Align.Right);
+            // Numbers that would touch the value box are left out (the box shows the value anyway); on a short
+            // tape also those the edge would cut in half, where a half-cut number next to the box reads as noise.
+            double size = Math.Max(10, Math.Min(14, k * 4));
+            if (major && Math.Abs(y - cy) > bh / 2 + size / 2 + 5 && (h - top >= 110 || y - size / 2 >= top && y + size / 2 <= h - 2))
+                Text(dc, x.ToString("0"), x1 - 16, y, size, P.Dim, P.Mono, Align.Right);
         }
         if (_history.Count > 1)
         {
@@ -909,6 +911,15 @@ public sealed class Annunciator : Gauge
         }
     }
 
+
+    /// <summary>A label's length in Latin-letter widths: kana and kanji are about twice as wide.</summary>
+    static int Wide(string label)
+    {
+        double n = 0;
+        foreach (char c in label)
+            n += c >= 0x2E80 ? 1.9 : 1;
+        return (int)Math.Ceiling(n);
+    }
     protected override void Draw(DrawingContext dc)
     {
         double w = Bounds.Width, h = Bounds.Height;
@@ -926,7 +937,7 @@ public sealed class Annunciator : Gauge
         // The grid with the biggest readable labels wins (fewer empty cells breaks a tie), so 9 lamps on a wide
         // tile become 3 x 3 or 5 + 4 instead of 4 + 4 + one orphan with tiny text.
         double top = bh + 8;
-        int longest = Math.Max(4, _lamps.Max(l => l.Label.Length));
+        int longest = Math.Max(4, _lamps.Max(l => Wide(l.Label)));
         int cols = 2;
         double best = -1;
         for (int c = 2; c <= Math.Min(5, _lamps.Count); c++)
@@ -939,6 +950,8 @@ public sealed class Annunciator : Gauge
         int rows = (int)Math.Ceiling(_lamps.Count / (double)cols);
         double lw = (w - (cols - 1) * 8) / cols, lh = (h - top - (rows - 1) * 6) / rows;
         double font = Math.Max(9, Math.Min(Math.Min(lh * 0.42, lw / (longest * 0.72)), 22));
+        // Never much bigger than the two master lights' text: on a tall, narrow tile the lamps would otherwise shout.
+        font = Math.Min(font, Math.Max(9, Math.Min(bh * 0.44, bw / (Wide("MASTER CAUTION") * 0.68))) * 1.2);
         for (int i = 0; i < _lamps.Count; i++)
         {
             var (label, state) = _lamps[i];
@@ -962,7 +975,7 @@ public sealed class Annunciator : Gauge
     {
         if (lit && P.Glow) dc.DrawRectangle(Alpha(col, 0x40), null, new Rect(r.X - 3, r.Y - 3, r.Width + 6, r.Height + 6), 5, 5);
         dc.DrawRectangle(lit ? col : off, MakePen(lit ? col : P.Track, 1), r, 3, 3);
-        Text(dc, label, r.X + r.Width / 2, r.Y + r.Height / 2, Math.Max(9, Math.Min(r.Height * 0.44, r.Width / (label.Length * 0.68))),
+        Text(dc, label, r.X + r.Width / 2, r.Y + r.Height / 2, Math.Max(9, Math.Min(r.Height * 0.44, r.Width / (Wide(label) * 0.68))),
              lit ? Alpha(Brushes.Black, 0x90) : P.Dim, P.Display, weight: FontWeight.SemiBold);
     }
 }

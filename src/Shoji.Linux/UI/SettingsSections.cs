@@ -38,6 +38,22 @@ public sealed partial class SettingsWindow
         var wrap = new WrapPanel();
         foreach (var t in Themes.All.Where(t => _themeGroup == "All" || t.Group == _themeGroup))
             wrap.Children.Add(ThemeCard(t, t.Id == current));
+        // As many columns as fit at about the cards' usual width, sharing the row, so a narrow window gets two
+        // columns instead of one with an empty half.
+        wrap.SizeChanged += (_, e) =>
+        {
+            const double gap = 14, usual = 226, least = 170;
+            double room = e.NewSize.Width;
+            if (room <= 0)
+                return;
+            // Every card carries the gap as its right margin, the last one in a row too.
+            int columns = Math.Max(1, (int)(room / (usual + gap)));
+            if (room / (columns + 1) - gap >= least)
+                columns++;
+            double width = Math.Min(300, Math.Floor(room / columns) - gap);
+            foreach (var card in wrap.Children)
+                card.Width = width;
+        };
         _panel.Children.Add(wrap);
     }
 
@@ -549,8 +565,12 @@ public sealed partial class SettingsWindow
         head.Children.Add(icon);
         var name = TextField(sc.Name, 240, v => Edit(x => x.Name = v ?? L.T("Scene")));
         name.FontWeight = FontWeight.SemiBold;
-        name.HorizontalAlignment = HorizontalAlignment.Left;
-        head.Children.Add(name);
+        // Up to its usual width, less when the window is narrow (the buttons on the right keep theirs).
+        name.Width = double.NaN;
+        name.MinWidth = 90;
+        var nameRoom = new Grid { ColumnDefinitions = { new ColumnDefinition(GridLength.Star) { MaxWidth = 240 }, new ColumnDefinition(GridLength.Star) } };
+        nameRoom.Children.Add(name);
+        head.Children.Add(nameRoom);
         ((StackPanel)card.Child!).Children.Add(head);
 
         static string? List(List<string>? l) => l == null || l.Count == 0 ? null : string.Join(", ", l);
@@ -651,8 +671,8 @@ public sealed partial class SettingsWindow
     void AddMqtt(AppConfig config)
     {
         var m = config.Mqtt;
+        Section("Smart home (MQTT)", null);
         var card = Card();
-        card.Margin = new Thickness(0, 26, 0, 10);
         string? status = !m.Enabled ? "Home Assistant and other smart-home systems can then show them and act on them"
             : string.IsNullOrWhiteSpace(m.Host) ? "Fill in the broker's address below" : MqttPublisher.LastStatus ?? "Connecting…";
         Setting(card, "Send this PC's readings to your smart home (MQTT)", status, Switch(m.Enabled, v => Change(c => c.Mqtt.Enabled = v, rebuild: true)), icon: "home");
@@ -660,7 +680,9 @@ public sealed partial class SettingsWindow
         Setting(card, "Broker port", "Usually 1883, or 8883 when encrypted", TextField(m.Port.ToString(), 90, v => Change(c => c.Mqtt.Port = int.TryParse(v, out int n) && n is > 0 and < 65536 ? n : 1883, rebuild: true)), icon: "lan");
         Setting(card, "Encrypted connection (TLS)", null, Switch(m.Tls, v => Change(c => c.Mqtt.Tls = v, rebuild: true)), icon: "lock");
         Setting(card, "User name", "Leave empty if the broker doesn't ask for one", TextField(m.User, 180, v => Change(c => c.Mqtt.User = v, rebuild: true)), icon: "person");
-        Setting(card, "Password", "Kept in Shoji's settings file on this PC", TextField(m.Password, 180, v => Change(c => c.Mqtt.Password = v, rebuild: true)), icon: "lock");
+        var password = TextField(m.Password, 180, v => Change(c => c.Mqtt.Password = v, rebuild: true));
+        password.PasswordChar = '•';
+        Setting(card, "Password", "Kept in Shoji's settings file on this PC", password, icon: "lock");
         Setting(card, "Topic", L.F("Empty = {0}", MqttPublisher.DefaultTopic), TextField(m.Topic, 220, v => Change(c => c.Mqtt.Topic = v, rebuild: true)), icon: "label");
         Setting(card, "Announce to Home Assistant", "The readings show up there as a device by themselves (MQTT discovery)", Switch(m.Discovery, v => Change(c => c.Mqtt.Discovery = v, rebuild: true)), last: true, icon: "home");
         _panel.Children.Add(Hint("Every 10 seconds: CPU, GPU, memory, power, FPS, ping and network speed (for the tiles you use), the app in focus, whether a full-screen app such as a game is running, and whether you're at the PC. Use them in automations: dim the lights when a game starts, switch a fan on when the GPU gets hot. Shoji only sends; it never takes commands over MQTT."));
@@ -707,7 +729,7 @@ public sealed partial class SettingsWindow
             Control right = it.Ok ? Pill("Working", PillKind.Good)
                 : it.Setup is { } setup ? AccentButton("Set up", () => { try { setup(); } catch (Exception ex) { Log.Write($"{it.Name} setup failed: {ex.Message}"); } Rebuild(); })
                 : it.Fix == null ? Pill("Not available", PillKind.Neutral) : Button("Copy fix", () => Clipboard?.SetTextAsync(it.Fix));
-            Setting(list, it.Name, it.Ok ? it.Detail : it.Fix == null ? it.Detail : it.Detail + "\n" + it.Fix, right, last: i == items.Count - 1, icon: it.Icon);
+            Setting(list, it.Name, it.Detail, right, last: i == items.Count - 1, icon: it.Icon, code: it.Ok ? null : it.Fix);
         }
     }
 

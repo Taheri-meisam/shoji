@@ -243,3 +243,41 @@ public sealed class FillOrNothing : Decorator
         return final;
     }
 }
+
+/// <summary>
+/// Content that scales down as a whole when the room is shorter than it needs (the clock's big time and date on a
+/// very small screen), instead of having its last line cut off. With enough room it changes nothing.
+/// </summary>
+public sealed class FitHeight : Decorator
+{
+    const double Least = 0.45;
+    double _scale = 1;
+
+    public FitHeight(Control child) => Child = child;
+
+    protected override Size MeasureOverride(Size available)
+    {
+        if (Child == null)
+            return default;
+        Child.Measure(new Size(available.Width, double.PositiveInfinity));
+        _scale = 1;
+        double need = Child.DesiredSize.Height;
+        if (!double.IsInfinity(available.Height) && need > available.Height + 0.5 && need > 0)
+        {
+            _scale = Math.Max(Least, available.Height / need);
+            // Scaled down it is also narrower, so it may use more width (text wraps less).
+            Child.Measure(new Size(available.Width / _scale, double.PositiveInfinity));
+        }
+        return new Size(Math.Min(available.Width, Child.DesiredSize.Width * _scale), Child.DesiredSize.Height * _scale);
+    }
+
+    protected override Size ArrangeOverride(Size final)
+    {
+        if (Child == null)
+            return final;
+        Child.Arrange(new Rect(0, 0, final.Width / _scale, Child.DesiredSize.Height));
+        Child.RenderTransformOrigin = RelativePoint.TopLeft;
+        Child.RenderTransform = _scale < 0.999 ? new ScaleTransform(_scale, _scale) : null;
+        return final;
+    }
+}

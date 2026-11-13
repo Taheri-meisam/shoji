@@ -158,7 +158,7 @@ public sealed class MemoryGaugeModule : Module
         {
             _gauge = Gauges.Load(style, L.T("RAM IN USE"), "記憶");
         }
-        View = GaugeTile(_gauge, _info, side: Round(style));
+        View = GaugeTile(_gauge, _info, side: Round(style) && style != "rings"); // the rings draw their own legend beside them
     }
 
     public override void Update(Snapshot s)

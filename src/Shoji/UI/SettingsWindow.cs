@@ -150,8 +150,8 @@ public sealed partial class SettingsWindow : Window
         var area = SystemParameters.WorkArea;
         Width = Math.Min(1160, area.Width - 40);
         Height = Math.Min(880, area.Height - 40);
-        MinWidth = Math.Min(800, Width);
-        MinHeight = Math.Min(520, Height);
+        MinWidth = Math.Min(480, Width);
+        MinHeight = Math.Min(400, Height);
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
         FontSize = 14;
@@ -180,21 +180,46 @@ public sealed partial class SettingsWindow : Window
             Children = { Ref(new TextBlock { Text = L.T("Settings look"), FontSize = 12, Margin = new Thickness(2, 0, 0, 8) }, TextBlock.ForegroundProperty, TextSecondary), _look },
         };
 
-        var navScroll = new ScrollViewer { Content = _nav, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
-        var left = new DockPanel { Width = 268 };
+        // The sections scroll; the look switch sits at the bottom while there is room and scrolls with them when there isn't.
+        var navStack = new Grid();
+        navStack.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        navStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        _nav.VerticalAlignment = VerticalAlignment.Top;
+        Grid.SetRow(lookBox, 1);
+        navStack.Children.Add(_nav);
+        navStack.Children.Add(lookBox);
+        var navScroll = new ScrollViewer { Content = navStack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        navScroll.SizeChanged += (_, e) => navStack.MinHeight = e.NewSize.Height;
+        var left = _left;
         left.SetResourceReference(Panel.BackgroundProperty, SettingsPalette.Side);
         var search = SearchBox();
         DockPanel.SetDock(brand, Dock.Top);
         DockPanel.SetDock(search, Dock.Top);
-        DockPanel.SetDock(lookBox, Dock.Bottom);
         left.Children.Add(brand);
         left.Children.Add(search);
-        left.Children.Add(lookBox);
         left.Children.Add(navScroll);
 
         // Right: the section (its header scrolls with it) and the "Saved" toast floating in the corner.
         BuildSavedToast();
-        var right = new Grid { Children = { _scroll, _saved } };
+        // Narrow windows (small and portrait screens): one column. A bar on top names the section and opens the list.
+        var menu = new Border
+        {
+            Width = 40, Height = 40, CornerRadius = new CornerRadius(10), Background = Brushes.Transparent, Margin = new Thickness(0, 0, 8, 0),
+            Child = new TextBlock { Text = "\uE700", FontFamily = IconFont, FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+        };
+        System.Windows.Automation.AutomationProperties.SetName(menu, L.T("Sections"));
+        Clickable(menu, () =>
+        {
+            _navOpen = true;
+            ApplyShell();
+        });
+        _topBar.Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { menu, _topTitle } };
+        _topBar.SetResourceReference(Border.BackgroundProperty, SettingsPalette.Side);
+        _topBar.SetResourceReference(Border.BorderBrushProperty, CardStroke);
+        var right = _right;
+        DockPanel.SetDock(_topBar, Dock.Top);
+        right.Children.Add(_topBar);
+        right.Children.Add(new Grid { Children = { _scroll, _saved } });
 
         var root = new Grid();
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -205,6 +230,8 @@ public sealed partial class SettingsWindow : Window
         Content = root;
 
         Rebuild();
+        SizeChanged += (_, _) => ApplyShell();
+        ApplyShell();
         // "Auto" follows Windows when it switches between light and dark.
         Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnSystemColors;
         Closed += (_, _) => Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnSystemColors;
@@ -300,7 +327,8 @@ public sealed partial class SettingsWindow : Window
 
         double offset = _resetScroll ? 0 : _scroll.VerticalOffset;
         _resetScroll = false;
-        _panel = new StackPanel { Margin = new Thickness(32, 24, 32, 72), MaxWidth = 1040, HorizontalAlignment = HorizontalAlignment.Left };
+        _panel = new StackPanel { Margin = PanelMargin, MaxWidth = 1040, HorizontalAlignment = HorizontalAlignment.Left };
+        _topTitle.Text = L.T(Sections.First(x => x.Id == _section).Name);
         _panel.Children.Add(Hero(_section, config));
         if (config.IsFallback)
             Banner(L.T("config.json has an error, so Shoji is running on defaults and won't save anything over your file. " +
@@ -333,7 +361,7 @@ public sealed partial class SettingsWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             Children =
             {
-                new TextBlock { Text = L.T(title), FontSize = 26, FontWeight = FontWeights.Bold },
+                new TextBlock { Text = L.T(title), FontSize = 26, FontWeight = FontWeights.Bold, TextWrapping = TextWrapping.Wrap },
                 Ref(new TextBlock { Text = L.T(subtitle), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) }, TextBlock.ForegroundProperty, TextSecondary),
             },
         };
@@ -404,8 +432,38 @@ public sealed partial class SettingsWindow : Window
     {
         _resetScroll = section != _section;
         _section = section;
+        _navOpen = false;
         Rebuild();
+        ApplyShell();
     }
+
+    readonly DockPanel _left = new() { Width = 268 };
+    readonly DockPanel _right = new() { LastChildFill = true };
+    readonly Border _topBar = new() { Padding = new Thickness(8, 6, 12, 6), BorderThickness = new Thickness(0, 0, 0, 1), Visibility = Visibility.Collapsed };
+    readonly TextBlock _topTitle = new() { FontSize = 17, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+    bool _compact, _navOpen;
+
+    /// <summary>Below this width the window is one column: the section, with the section list behind the menu button.</summary>
+    const double CompactBelow = 760;
+
+    /// <summary>Two columns when there is room; otherwise either the section or (after the menu button) the list.</summary>
+    void ApplyShell()
+    {
+        double width = ActualWidth > 0 ? ActualWidth : Width;
+        _compact = width < CompactBelow;
+        if (!_compact)
+            _navOpen = false;
+        _left.Visibility = !_compact || _navOpen ? Visibility.Visible : Visibility.Collapsed;
+        _left.Width = _compact ? double.NaN : 268;
+        Grid.SetColumnSpan(_left, _compact ? 2 : 1);
+        _right.Visibility = !_compact || !_navOpen ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumn(_right, _compact ? 0 : 1);
+        Grid.SetColumnSpan(_right, _compact ? 2 : 1);
+        _topBar.Visibility = _compact ? Visibility.Visible : Visibility.Collapsed;
+        _panel.Margin = PanelMargin;
+    }
+
+    Thickness PanelMargin => _compact ? new Thickness(14, 14, 14, 72) : new Thickness(32, 24, 32, 72);
 
     void BuildNav(AppConfig config)
     {
@@ -534,6 +592,22 @@ public sealed partial class SettingsWindow : Window
         var wrap = new WrapPanel();
         foreach (var t in Themes.All.Where(t => _themeGroup == "All" || t.Group == _themeGroup))
             wrap.Children.Add(ThemeCard(t, t.Id == current));
+        // As many columns as fit at about the cards' usual width, sharing the row, so a narrow window gets two
+        // columns instead of one with an empty half.
+        wrap.SizeChanged += (_, e) =>
+        {
+            const double gap = 14, usual = 226, least = 170;
+            double room = e.NewSize.Width;
+            if (room <= 0 || !e.WidthChanged)
+                return;
+            // Every card carries the gap as its right margin, the last one in a row too.
+            int columns = Math.Max(1, (int)(room / (usual + gap)));
+            if (room / (columns + 1) - gap >= least)
+                columns++;
+            double width = Math.Min(300, Math.Floor(room / columns) - gap);
+            foreach (FrameworkElement card in wrap.Children)
+                card.Width = width;
+        };
         _panel.Children.Add(wrap);
     }
 
@@ -1762,9 +1836,15 @@ public sealed partial class SettingsWindow : Window
         head.Children.Add(icon);
         var name = TextField(sc.Name, 240, v => Edit(x => x.Name = v ?? "Scene"));
         name.FontWeight = FontWeights.SemiBold;
-        name.HorizontalAlignment = HorizontalAlignment.Left;
         name.VerticalAlignment = VerticalAlignment.Center;
-        head.Children.Add(name);
+        // Up to its usual width, less when the window is narrow (the buttons on the right keep theirs).
+        name.Width = double.NaN;
+        name.MinWidth = 90;
+        var nameRoom = new Grid();
+        nameRoom.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MaxWidth = 240 });
+        nameRoom.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        nameRoom.Children.Add(name);
+        head.Children.Add(nameRoom);
         ((StackPanel)card.Child).Children.Add(head);
 
         Setting(card, L.T("When the app in focus is"), "spotify, *launcher*, \\steamapps\\", TextField(List(sc.Apps), 300, v => Edit(x => x.Apps = Parse(v))), icon: "\uE71D");
@@ -2052,8 +2132,8 @@ public sealed partial class SettingsWindow : Window
     void AddMqtt(AppConfig config)
     {
         var m = config.Mqtt;
+        Section(L.T("Smart home (MQTT)"), null);
         var card = Card();
-        card.Margin = new Thickness(0, 26, 0, 10);
         string? status = !m.Enabled ? L.T("Home Assistant and other smart-home systems can then show them and act on them")
             : string.IsNullOrWhiteSpace(m.Host) ? L.T("Fill in the broker's address below") : MqttPublisher.LastStatus ?? L.T("Connecting…");
         Setting(card, L.T("Send this PC's readings to your smart home (MQTT)"), status, Switch(m.Enabled, v => Change(c => c.Mqtt.Enabled = v, rebuild: true)), icon: "\uE80F");
@@ -2061,7 +2141,7 @@ public sealed partial class SettingsWindow : Window
         Setting(card, L.T("Broker port"), L.T("Usually 1883, or 8883 when encrypted"), TextField(m.Port.ToString(), 90, v => Change(c => c.Mqtt.Port = int.TryParse(v, out int n) && n is > 0 and < 65536 ? n : 1883, rebuild: true)), icon: "\uE839");
         Setting(card, L.T("Encrypted connection (TLS)"), null, Switch(m.Tls, v => Change(c => c.Mqtt.Tls = v, rebuild: true)), icon: "\uE72E");
         Setting(card, L.T("User name"), L.T("Leave empty if the broker doesn't ask for one"), TextField(m.User, 180, v => Change(c => c.Mqtt.User = v, rebuild: true)), icon: "\uE77B");
-        Setting(card, L.T("Password"), L.T("Kept in Shoji's settings file on this PC"), TextField(m.Password, 180, v => Change(c => c.Mqtt.Password = v, rebuild: true)), icon: "\uE72E");
+        Setting(card, L.T("Password"), L.T("Kept in Shoji's settings file on this PC"), PasswordField(m.Password, 180, v => Change(c => c.Mqtt.Password = v, rebuild: true)), icon: "\uE72E");
         Setting(card, L.T("Topic"), L.F("Empty = {0}", MqttPublisher.DefaultTopic), TextField(m.Topic, 220, v => Change(c => c.Mqtt.Topic = v, rebuild: true)), icon: "\uE8EC");
         Setting(card, L.T("Announce to Home Assistant"), L.T("The readings show up there as a device by themselves (MQTT discovery)"), Switch(m.Discovery, v => Change(c => c.Mqtt.Discovery = v, rebuild: true)), last: true, icon: "\uE80F");
         _panel.Children.Add(Hint(L.T("Every 10 seconds: CPU, GPU, memory, power, FPS, ping and network speed (for the tiles you use), the app in focus, whether a full-screen app such as a game is running, and whether you're at the PC. Use them in automations: dim the lights when a game starts, switch a fan on when the GPU gets hot. Shoji only sends; it never takes commands over MQTT.")));
@@ -2391,27 +2471,84 @@ public sealed partial class SettingsWindow : Window
     /// <summary>One row in a card: optional icon, label (and description) on the left, the control on the right, a divider below.</summary>
     static void Setting(Border card, string label, string? description, FrameworkElement control, bool last = false, string? icon = null)
     {
-        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
+        var text = new StackPanel();
         text.Children.Add(new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap });
         if (description != null)
             text.Children.Add(Ref(new TextBlock { Text = description, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 1, 0, 0) }, TextBlock.ForegroundProperty, TextSecondary));
-        control.VerticalAlignment = VerticalAlignment.Center;
         if (string.IsNullOrEmpty(System.Windows.Automation.AutomationProperties.GetName(control)))
             System.Windows.Automation.AutomationProperties.SetName(control, label); // what screen readers announce
-        var row = new DockPanel { Margin = new Thickness(0, 12, 0, 12), LastChildFill = true };
-        if (icon != null)
-        {
-            var glyph = Ref(new TextBlock { Text = icon, FontFamily = IconFont, FontSize = 17, Width = 22, Margin = new Thickness(0, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center }, TextBlock.ForegroundProperty, TextSecondary);
-            DockPanel.SetDock(glyph, Dock.Left);
-            row.Children.Add(glyph);
-        }
-        DockPanel.SetDock(control, Dock.Right);
-        row.Children.Add(control);
-        row.Children.Add(text);
+        TextBlock? glyph = icon == null ? null
+            : Ref(new TextBlock { Text = icon, FontFamily = IconFont, FontSize = 17, Width = 22, Margin = new Thickness(0, 0, 14, 0), TextAlignment = TextAlignment.Center }, TextBlock.ForegroundProperty, TextSecondary);
         var inner = (StackPanel)card.Child;
-        inner.Children.Add(row);
+        inner.Children.Add(new SettingRow(glyph, text, control) { Margin = new Thickness(0, 12, 0, 12) });
         if (!last)
             inner.Children.Add(Ref(new Border { Height = 1 }, Border.BackgroundProperty, SettingsPalette.Divider));
+    }
+
+    /// <summary>
+    /// A settings row: icon, text, and the control on the right. When the row is too narrow to leave the text a
+    /// readable width (a small window, a wide control), the control moves under the text instead of squeezing it.
+    /// </summary>
+    sealed class SettingRow : Panel
+    {
+        const double MinText = 190, Gap = 16, StackGap = 8;
+        readonly FrameworkElement? _icon;
+        readonly FrameworkElement _text, _control;
+        bool _stacked;
+
+        public SettingRow(FrameworkElement? icon, FrameworkElement text, FrameworkElement control)
+        {
+            _icon = icon;
+            _text = text;
+            _control = control;
+            if (icon != null)
+                Children.Add(icon);
+            Children.Add(text);
+            Children.Add(control);
+        }
+
+        protected override Size MeasureOverride(Size available)
+        {
+            var open = new Size(double.PositiveInfinity, double.PositiveInfinity);
+            _icon?.Measure(open);
+            double iconW = _icon?.DesiredSize.Width ?? 0, iconH = _icon?.DesiredSize.Height ?? 0;
+            _control.Measure(open);
+            double controlW = _control.DesiredSize.Width;
+            if (double.IsInfinity(available.Width))
+            {
+                _stacked = false;
+                _text.Measure(open);
+                return new Size(iconW + _text.DesiredSize.Width + Gap + controlW, Math.Max(iconH, Math.Max(_text.DesiredSize.Height, _control.DesiredSize.Height)));
+            }
+            double room = Math.Max(0, available.Width - iconW);
+            _stacked = room - controlW - Gap < MinText;
+            if (_stacked)
+            {
+                _text.Measure(new Size(room, double.PositiveInfinity));
+                _control.Measure(new Size(room, double.PositiveInfinity));
+                return new Size(available.Width, Math.Max(iconH, _text.DesiredSize.Height + StackGap + _control.DesiredSize.Height));
+            }
+            _text.Measure(new Size(Math.Max(0, room - controlW - Gap), double.PositiveInfinity));
+            return new Size(available.Width, Math.Max(iconH, Math.Max(_text.DesiredSize.Height, _control.DesiredSize.Height)));
+        }
+
+        protected override Size ArrangeOverride(Size final)
+        {
+            double iconW = _icon?.DesiredSize.Width ?? 0, iconH = _icon?.DesiredSize.Height ?? 0;
+            double textH = _text.DesiredSize.Height, controlW = _control.DesiredSize.Width, controlH = _control.DesiredSize.Height;
+            if (_stacked)
+            {
+                double room = Math.Max(0, final.Width - iconW);
+                _icon?.Arrange(new Rect(0, Math.Max(0, (textH - iconH) / 2), iconW, iconH));
+                _text.Arrange(new Rect(iconW, 0, room, textH));
+                _control.Arrange(new Rect(iconW, textH + StackGap, Math.Min(controlW, room), controlH));
+                return final;
+            }
+            _icon?.Arrange(new Rect(0, Math.Max(0, (final.Height - iconH) / 2), iconW, iconH));
+            _text.Arrange(new Rect(iconW, Math.Max(0, (final.Height - textH) / 2), Math.Max(0, final.Width - iconW - controlW - Gap), textH));
+            _control.Arrange(new Rect(Math.Max(0, final.Width - controlW), Math.Max(0, (final.Height - controlH) / 2), controlW, controlH));
+            return final;
+        }
     }
 
     static Border Chip(string text, bool selected, Action click)

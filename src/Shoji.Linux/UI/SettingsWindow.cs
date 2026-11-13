@@ -66,6 +66,35 @@ static class Look
             w.Resources[key] = pressed;
         foreach (var key in new[] { "AccentButtonForeground", "AccentButtonForegroundPointerOver", "AccentButtonForegroundPressed", "ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed" })
             w.Resources[key] = Brushes.White;
+
+        // Boxes, drop-downs, buttons and switched-off switches in the window's own paper / ink colours with soft
+        // corners, instead of Fluent's hard black (light) or white (dark) outlines and square grey buttons.
+        var edge = B(dark ? "#3A404C" : "#D5CEC2");
+        var edgeHover = B(dark ? "#566072" : "#B3AB9D");
+        var button = B(dark ? "#2A2F39" : "#F3F0EB");
+        var buttonHover = B(dark ? "#343A46" : "#EAE5DD");
+        var buttonPressed = B(dark ? "#23272F" : "#E0DAD0");
+        void Set(IBrush brush, params string[] keys)
+        {
+            foreach (var key in keys)
+                w.Resources[key] = brush;
+        }
+        Set(Input, "TextControlBackground", "TextControlBackgroundPointerOver", "ComboBoxBackground", "ComboBoxBackgroundPointerOver", "ComboBoxBackgroundPressed");
+        Set(Card, "TextControlBackgroundFocused", "ComboBoxDropDownBackground");
+        Set(edge, "TextControlBorderBrush", "ComboBoxBorderBrush", "ComboBoxDropDownBorderBrush", "ButtonBorderBrush", "ButtonBorderBrushPressed");
+        Set(edgeHover, "TextControlBorderBrushPointerOver", "ComboBoxBorderBrushPointerOver", "ComboBoxBorderBrushPressed", "ButtonBorderBrushPointerOver");
+        Set(Text1, "TextControlForeground", "TextControlForegroundPointerOver", "TextControlForegroundFocused", "ComboBoxForeground", "ButtonForeground", "ButtonForegroundPointerOver", "ButtonForegroundPressed");
+        Set(Text3, "TextControlPlaceholderForeground", "TextControlPlaceholderForegroundPointerOver", "TextControlPlaceholderForegroundFocused",
+            "ToggleSwitchStrokeOffPointerOver", "ToggleSwitchStrokeOffPressed", "ToggleSwitchKnobFillOffPointerOver", "ToggleSwitchKnobFillOffPressed");
+        Set(Text2, "ComboBoxDropDownGlyphForeground", "ToggleSwitchStrokeOff", "ToggleSwitchKnobFillOff");
+        Set(edge, "ToggleSwitchStrokeOffDisabled", "ToggleSwitchKnobFillOffDisabled"); // a switch that can't be used is clearly fainter than one that is off
+        Set(Brushes.Transparent, "ToggleSwitchFillOff", "AccentButtonBorderBrush", "AccentButtonBorderBrushPointerOver", "AccentButtonBorderBrushPressed");
+        Set(Hover, "ToggleSwitchFillOffPointerOver", "ToggleSwitchFillOffPressed");
+        Set(button, "ButtonBackground");
+        Set(buttonHover, "ButtonBackgroundPointerOver");
+        Set(buttonPressed, "ButtonBackgroundPressed");
+        w.Resources["ControlCornerRadius"] = new CornerRadius(8);
+        w.Resources["OverlayCornerRadius"] = new CornerRadius(10);
         w.Background = Bg;
         w.Foreground = Text1;
     }
@@ -209,8 +238,8 @@ public sealed partial class SettingsWindow : Window
         Icon = App.WindowIcon();
         Width = 1160;
         Height = 860;
-        MinWidth = 820;
-        MinHeight = 520;
+        MinWidth = 480;
+        MinHeight = 400;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         FontFamily = new FontFamily("Inter, Ubuntu, Noto Sans, Noto Sans CJK JP");
         FontSize = 14;
@@ -243,15 +272,37 @@ public sealed partial class SettingsWindow : Window
         _left = new DockPanel { Width = 268 };
         DockPanel.SetDock(brand, Dock.Top);
         DockPanel.SetDock(_search, Dock.Top);
-        DockPanel.SetDock(_lookBox, Dock.Bottom);
         _left.Children.Add(brand);
         _left.Children.Add(_search);
-        _left.Children.Add(_lookBox);
-        _left.Children.Add(new ScrollViewer { Content = _nav, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
+        // The sections scroll; the look switch sits at the bottom while there is room and scrolls with them when there isn't.
+        var navStack = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
+        _nav.VerticalAlignment = VerticalAlignment.Top;
+        Grid.SetRow(_lookBox, 1);
+        navStack.Children.Add(_nav);
+        navStack.Children.Add(_lookBox);
+        var navScroll = new ScrollViewer { Content = navStack, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        navScroll.SizeChanged += (_, e) => navStack.MinHeight = e.NewSize.Height;
+        _left.Children.Add(navScroll);
+
+        // Narrow windows (small and portrait screens): one column. A bar on top names the section and opens the list.
+        var menu = new Border
+        {
+            Width = 40, Height = 40, CornerRadius = new CornerRadius(10), Background = Brushes.Transparent, Margin = new Thickness(0, 0, 8, 0),
+            Child = _menuGlyph,
+        };
+        Clickable(menu, () =>
+        {
+            _navOpen = true;
+            ApplyShell();
+        });
+        _topBar.Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { menu, _topTitle } };
 
         // Right: the section (its banner scrolls with it) and the "Saved" toast in the corner.
         BuildSavedToast();
-        var right = new Grid { Children = { _scroll, _saved } };
+        var right = _right;
+        DockPanel.SetDock(_topBar, Dock.Top);
+        right.Children.Add(_topBar);
+        right.Children.Add(new Grid { Children = { _scroll, _saved } });
         _root.ColumnDefinitions = new ColumnDefinitions("Auto,*");
         Grid.SetColumn(right, 1);
         _root.Children.Add(_left);
@@ -264,7 +315,23 @@ public sealed partial class SettingsWindow : Window
         };
         // Closing the window doesn't take focus from the box being typed in: save what's typed first.
         Closing += (_, _) => FlushPending();
+        SizeChanged += (_, _) => ApplyShell();
+        // Never bigger than the screen it opens on (a 1024x600 panel, a portrait bar).
+        Opened += (_, _) =>
+        {
+            if (Screens.ScreenFromWindow(this) is { } screen)
+            {
+                double w = screen.WorkingArea.Width / screen.Scaling, h = screen.WorkingArea.Height / screen.Scaling;
+                if (Width > w - 16 || Height > h - 16)
+                {
+                    Width = Math.Max(MinWidth, Math.Min(Width, w - 16));
+                    Height = Math.Max(MinHeight, Math.Min(Height, h - 48));
+                    Position = new PixelPoint(screen.WorkingArea.X + (int)((w - Width) / 2 * screen.Scaling), screen.WorkingArea.Y + (int)(Math.Max(0, h - Height - 32) / 2 * screen.Scaling));
+                }
+            }
+        };
         Rebuild();
+        ApplyShell();
     }
 
     readonly TextBlock _version;
@@ -273,11 +340,41 @@ public sealed partial class SettingsWindow : Window
     readonly TextBlock _lookCaption;
     readonly TextBlock _savedText = new() { FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
     readonly DockPanel _left;
+    readonly DockPanel _right = new() { LastChildFill = true };
+    readonly Border _topBar = new() { Padding = new Thickness(8, 6, 12, 6), BorderThickness = new Thickness(0, 0, 0, 1), IsVisible = false };
+    readonly TextBlock _topTitle = new() { FontSize = 17, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+    readonly TextBlock _menuGlyph = new() { Text = "menu", FontFamily = UI.Theme.Icons, FontSize = 24, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+    bool _compact, _navOpen;
+
+    /// <summary>Below this width the window is one column: the section, with the section list behind the menu button.</summary>
+    const double CompactBelow = 760;
+
+    /// <summary>Two columns when there is room; otherwise either the section or (after the menu button) the list.</summary>
+    void ApplyShell()
+    {
+        double width = Bounds.Width > 0 ? Bounds.Width : Width;
+        _compact = width < CompactBelow;
+        if (!_compact)
+            _navOpen = false;
+        bool list = !_compact || _navOpen;
+        _left.IsVisible = list;
+        _left.Width = _compact ? double.NaN : 268;
+        Grid.SetColumnSpan(_left, _compact ? 2 : 1);
+        _right.IsVisible = !_compact || !_navOpen;
+        Grid.SetColumn(_right, _compact ? 0 : 1);
+        Grid.SetColumnSpan(_right, _compact ? 2 : 1);
+        _topBar.IsVisible = _compact;
+        _panel.Margin = PanelMargin;
+    }
+
+    Thickness PanelMargin => _compact ? new Thickness(14, 14, 14, 72) : new Thickness(32, 24, 32, 72);
 
     /// <summary>The window's own texts, set again on every rebuild (the language may have changed).</summary>
     void TextChrome()
     {
         Title = L.T("Shoji settings");
+        // Japanese first for Japanese: otherwise kana and kanji fall back to whatever the system picks (often a Mincho).
+        FontFamily = new FontFamily(L.Language == "ja" ? "Noto Sans CJK JP, Inter, Ubuntu, Noto Sans" : "Inter, Ubuntu, Noto Sans, Noto Sans CJK JP");
         _version.Text = L.F("Version {0} · Linux", AppPaths.VersionText);
         _search.Watermark = L.T("Find a setting");
         ToolTip.SetTip(_search, L.T("Type a word like \"temperature\", \"monitor\" or \"hotkey\"; Enter opens the first match"));
@@ -294,6 +391,9 @@ public sealed partial class SettingsWindow : Window
         _lookBox.BorderBrush = Look.Stroke;
         _lookCaption.Foreground = Look.Text2;
         _saved.Background = Look.Raised;
+        _topBar.Background = Look.Side;
+        _topBar.BorderBrush = Look.Stroke;
+        _topTitle.Foreground = _menuGlyph.Foreground = Look.Text1;
         _saved.BorderBrush = Look.Stroke;
         ((TextBlock)((StackPanel)_saved.Child!).Children[0]).Foreground = Look.Good;
     }
@@ -338,7 +438,8 @@ public sealed partial class SettingsWindow : Window
 
         var offset = _resetScroll ? new Vector(0, 0) : _scroll.Offset;
         _resetScroll = false;
-        _panel = new StackPanel { Margin = new Thickness(32, 24, 32, 72), MaxWidth = 1040, HorizontalAlignment = HorizontalAlignment.Left };
+        _panel = new StackPanel { Margin = PanelMargin, MaxWidth = 1040, HorizontalAlignment = HorizontalAlignment.Left };
+        _topTitle.Text = L.T(Sections.First(x => x.Id == _section).Name);
         _panel.Children.Add(Hero(_section, config));
         if (config.IsFallback)
             Banner("config.json has an error, so Shoji is running on defaults and won't save anything over your file. " +
@@ -363,7 +464,9 @@ public sealed partial class SettingsWindow : Window
     {
         _resetScroll = section != _section;
         _section = section;
+        _navOpen = false;
         Rebuild();
+        ApplyShell();
     }
 
     IEnumerable<string> Matches()
@@ -435,15 +538,17 @@ public sealed partial class SettingsWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             Children =
             {
-                new TextBlock { Text = L.T(s.Name), FontSize = 26, FontWeight = FontWeight.Bold, Foreground = Look.Text1 },
+                new TextBlock { Text = L.T(s.Name), FontSize = 26, FontWeight = FontWeight.Bold, Foreground = Look.Text1, TextWrapping = TextWrapping.Wrap },
                 new TextBlock { Text = L.T(s.Subtitle), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0), Foreground = Look.Text2 },
             },
         };
         var row = new DockPanel { Margin = new Thickness(22, 20) };
         DockPanel.SetDock(icon, Dock.Left);
         row.Children.Add(icon);
-        if (HeroStatus(id, config) is { } status)
+        if (HeroStatus(id, config) is { } pill)
         {
+            // On the card colour, so the big kanji behind doesn't show through the pill's see-through tint.
+            var status = new Border { CornerRadius = new CornerRadius(20), Background = Look.Card, Child = pill };
             DockPanel.SetDock(status, Dock.Right);
             status.VerticalAlignment = VerticalAlignment.Center;
             status.Margin = new Thickness(16, 0, 0, 0);

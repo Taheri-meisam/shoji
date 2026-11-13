@@ -134,7 +134,8 @@ public sealed class ClockModule : Module
             return;
         }
 
-        View = MakeTile(Body(up.ShowFrom(Density.Normal), top.ToArray()));
+        // On a very small screen the time and date scale down together instead of the date being cut off.
+        View = MakeTile(Body(up.ShowFrom(Density.Normal), new FitHeight(W.Stack(top.ToArray()))));
     }
 
     static DockPanel Bottom(UIElement fill, UIElement bottom)
@@ -224,7 +225,9 @@ public sealed class DriveHealthModule : Module
             var row = W.Row("", out var state, out var name);
             name.Foreground = Theme.Text;
             var details = W.Text("", Theme.Small, Theme.Dim);
-            details.TextTrimming = TextTrimming.CharacterEllipsis;
+            // Wear, age, temperature and data written rarely fit one line: wrap instead of cutting the end off.
+            details.TextTrimming = TextTrimming.None;
+            details.TextWrapping = TextWrapping.Wrap;
             details.Margin = new Thickness(0, 0, 0, 7);
             _list.Children.Add(row);
             _list.Children.Add(details);
@@ -572,17 +575,51 @@ public sealed class SensorsModule : Module
 {
     readonly RowList _list = new();
     readonly List<SensorRef> _refs;
+    // Up to four sensors are shown as big numbers, two a row: a short list would leave most of the tile empty.
+    readonly List<(TextBlock Value, TextBlock Caption)> _stats = new();
 
     public SensorsModule(ModuleConfig config) : base(config, "Sensors")
     {
         _refs = config.Sensors ?? new List<SensorRef>();
-        View = MakeTile(_refs.Count == 0
-            ? W.Text(L.T("Tray icon → Export sensor list, then add sensor ids to config.json"), Theme.Small, Theme.Dim)
-            : _list);
+        if (_refs.Count == 0)
+        {
+            View = MakeTile(W.Text(L.T("Tray icon → Export sensor list, then add sensor ids to config.json"), Theme.Small, Theme.Dim));
+            return;
+        }
+        if (_refs.Count > 4)
+        {
+            View = MakeTile(_list);
+            return;
+        }
+        var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = _refs.Count == 1 ? 1 : 2, VerticalAlignment = VerticalAlignment.Top };
+        foreach (var r in _refs)
+        {
+            var stat = W.Stat("", out var value, out var caption, Theme.Big * 0.8);
+            caption.Text = r.Label ?? r.Id;
+            stat.Margin = new Thickness(0, 2, 8, 8);
+            grid.Children.Add(stat);
+            _stats.Add((value, caption));
+        }
+        View = MakeTile(grid);
     }
 
     public override void Update(Snapshot s)
     {
+        for (int i = 0; i < _stats.Count; i++)
+        {
+            var r = _refs[i];
+            var (value, caption) = _stats[i];
+            bool found = s.Sensors.TryGetValue(r.Id, out var v);
+            // The number big, its unit down in the caption ("CPU fan · rpm"): wide display fonts would cut "1240 rpm" off.
+            string text = found ? FormatSensor(v!) : "n/a";
+            int space = text.LastIndexOf(' ');
+            string name = r.Label ?? (found ? v!.Name : r.Id);
+            caption.Text = space > 0 ? $"{name} · {text[(space + 1)..]}" : name;
+            value.Text = space > 0 ? text[..space] : text;
+            value.Foreground = !found ? Theme.Dim : v!.Type == "Temperature" ? Theme.ForTemperature(v.Value) : Theme.Text;
+        }
+        if (_stats.Count > 0)
+            return;
         for (int i = 0; i < _refs.Count; i++)
         {
             var r = _refs[i];
