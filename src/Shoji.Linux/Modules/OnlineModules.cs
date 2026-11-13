@@ -513,7 +513,7 @@ public sealed class LyricsModule : Module
         var m = s.Media;
         if (m == null || string.IsNullOrEmpty(m.Title))
         {
-            Show("", L.T("Play some music"), "", null);
+            Show("", L.T("Play some music"), "", null, message: true);
             _song.Text = "";
             return;
         }
@@ -522,7 +522,7 @@ public sealed class LyricsModule : Module
         var lyrics = _lyrics.Get(m.Artist, m.Title, m.Duration, out bool loading);
         if (lyrics == null)
         {
-            Show("", L.T(loading ? "Looking for lyrics…" : "No lyrics found"), "", null);
+            Show("", L.T(loading ? "Looking for lyrics…" : "No lyrics found"), "", null, message: true);
             return;
         }
         if (lyrics.Synced.Count == 0)
@@ -539,8 +539,19 @@ public sealed class LyricsModule : Module
         Show(Text(i - 1), i < 0 ? "♪" : Text(i), Text(i + 1), null);
     }
 
-    void Show(string prev, string current, string next, string? plain)
+    bool _message;
+
+    /// <summary><paramref name="message"/>: "No lyrics found" and the like, shown small and dim instead of as a sung line.</summary>
+    void Show(string prev, string current, string next, string? plain, bool message = false)
     {
+        if (message != _message)
+        {
+            _message = message;
+            _current.FontSize = message ? UI.Theme.Medium : UI.Theme.Medium + 10;
+            _current.Foreground = message ? UI.Theme.Dim : UI.Theme.Accent;
+            _current.FontFamily = message ? UI.Theme.Font : UI.Theme.Display;
+            _current.Effect = message ? null : UI.Theme.NumberEffect;
+        }
         _synced.IsVisible = plain == null;
         _plainScroll.IsVisible = !(plain == null);
         if (plain != null)

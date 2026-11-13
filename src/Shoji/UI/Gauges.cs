@@ -997,7 +997,10 @@ public sealed class Annunciator : Gauge
         for (int i = 0; i < _lamps.Count; i++)
         {
             var (label, state) = _lamps[i];
-            var r = new Rect((i % cols) * (lw + 8), top + i / cols * (lh + 6), lw, lh);
+            // A last row with fewer lamps shares the full width (one lamp left over becomes a wide one, not an orphan).
+            int inRow = i / cols == rows - 1 ? _lamps.Count - (rows - 1) * cols : cols;
+            double cw = (w - (inRow - 1) * 8) / inRow;
+            var r = new Rect((i % cols) * (cw + 8), top + i / cols * (lh + 6), cw, lh);
             var col = state == 2 ? P.Crit : state == 3 ? P.Accent : P.Warn;
             if (state > 0)
             {

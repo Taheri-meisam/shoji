@@ -35,11 +35,16 @@ public sealed class FpsModule : Module
             _fps.Text = "–";
             _fpsCaption.Text = f.Error == "needs admin" || f.Error == L.T("needs admin") ? L.T("needs admin (tray → Restart as admin)") : L.F("FPS counter {0}", L.T(f.Error));
             _fpsCaption.Foreground = Theme.Warn;
+            // A hint, not a one-word caption: let it wrap instead of ending in "…".
+            _fpsCaption.TextWrapping = TextWrapping.Wrap;
+            _fpsCaption.TextTrimming = TextTrimming.None;
             return;
         }
 
         _fpsCaption.Text = "fps";
         _fpsCaption.Foreground = Theme.Dim;
+        _fpsCaption.TextWrapping = TextWrapping.NoWrap;
+        _fpsCaption.TextTrimming = TextTrimming.CharacterEllipsis;
         _fps.Text = f?.Fps is double fps ? fps.ToString("0") : "–";
         _fps.Foreground = f?.Fps is < 30 ? Theme.Warn : Theme.Text;
         _low.Text = W.Format(f?.OnePercentLow, "0", "");
