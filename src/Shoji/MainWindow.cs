@@ -645,6 +645,12 @@ public sealed class MainWindow : Window, IDashboardHost
     void ShowEdges(Point? mouse)
     {
         _cornerNear = mouse is { } at && InCorner(at) && !_swiping;
+        // Only real movement counts: WPF repeats MouseMove under a resting pointer whenever the tiles redraw.
+        if (mouse is { } now && (Math.Abs(now.X - _cornerMouse.X) > 2 || Math.Abs(now.Y - _cornerMouse.Y) > 2))
+        {
+            _cornerMouse = now;
+            PinCorner(3.5);
+        }
         UpdateCorner();
         bool can = mouse != null && _pages.Count > 1 && !_editor.IsOpen && !_swiping;
         double reach = Math.Min(90, ActualWidth * 0.12);
@@ -669,11 +675,13 @@ public sealed class MainWindow : Window, IDashboardHost
     // ---------------------------------------------------------------- the window's own buttons: Settings and Close
 
     // The dashboard has no title bar, and the tray icon is easy to miss (Windows tucks it into the overflow): these
-    // are the visible way to reach Settings and to close Shoji. Hidden until the mouse comes near the top right
-    // corner, a right click anywhere, or a long press in that corner (touch screens); they go away by themselves.
+    // are the visible way to reach Settings and to close Shoji. They show for a few seconds when the dashboard starts
+    // and whenever the mouse moves over it (as a video player's controls do), on a right click, and on a long press
+    // in that corner (touch screens).
     readonly Border _corner = new() { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 12, 12, 0) };
-    readonly DispatcherTimer _cornerTimer = new() { Interval = TimeSpan.FromSeconds(6) }, _cornerHold = new() { Interval = TimeSpan.FromMilliseconds(650) };
+    readonly DispatcherTimer _cornerTimer = new(), _cornerHold = new() { Interval = TimeSpan.FromMilliseconds(650) };
     bool _cornerNear, _cornerPinned, _cornerShown;
+    Point _cornerMouse;
 
     /// <summary>Closes Shoji the way the tray icon's Exit does (set by Program).</summary>
     public Action? Quit { get; set; }
@@ -713,6 +721,7 @@ public sealed class MainWindow : Window, IDashboardHost
                 _cornerHold.Start();
         };
         AddHandler(PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler((_, _) => _cornerHold.Stop()), handledEventsToo: true);
+        Loaded += (_, _) => PinCorner(8); // so they are seen once, right where they will be
     }
 
     Border CornerButton(string glyph, string name, Action action)
@@ -729,11 +738,12 @@ public sealed class MainWindow : Window, IDashboardHost
 
     bool InCorner(Point p) => p.Y < 110 && p.X > ActualWidth - Math.Max(220, ActualWidth * 0.2);
 
-    /// <summary>Shows the buttons for a few seconds wherever the pointer is (right click, long press).</summary>
-    void PinCorner()
+    /// <summary>Shows the buttons for a few seconds wherever the pointer is (start, mouse movement, right click, long press).</summary>
+    void PinCorner(double seconds = 6)
     {
         _cornerPinned = true;
         _cornerTimer.Stop();
+        _cornerTimer.Interval = TimeSpan.FromSeconds(seconds);
         _cornerTimer.Start();
         UpdateCorner();
     }
@@ -749,8 +759,15 @@ public sealed class MainWindow : Window, IDashboardHost
         {
             _corner.Background = Theme.Tile;
             _corner.BorderBrush = new SolidColorBrush(Theme.WithAlpha(Theme.TextColor, 0x30));
-            foreach (Border child in ((StackPanel)_corner.Child).Children)
-                ((TextBlock)child.Child).Foreground = Theme.Text;
+            // Sized for the screen: easy to hit on a big monitor, not in the way on a small panel.
+            double size = Math.Clamp(Math.Min(ActualWidth, ActualHeight) / 18, 46, 76);
+            foreach (Border button in ((StackPanel)_corner.Child).Children)
+            {
+                button.Width = button.Height = size;
+                var glyph = (TextBlock)button.Child;
+                glyph.FontSize = Math.Round(size * 0.44);
+                glyph.Foreground = Theme.Text;
+            }
         }
         _corner.BeginAnimation(OpacityProperty, new DoubleAnimation(show ? 1 : 0, TimeSpan.FromMilliseconds(160)));
     }

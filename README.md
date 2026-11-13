@@ -239,9 +239,10 @@ adds the pages or replaces yours. Tokens, keys, passwords and calendar links are
 jump), or use the mouse's back / forward buttons. With a mouse, an arrow appears when the pointer nears the left or
 right edge.
 
-**Settings and closing**: move the mouse to the top right corner of the dashboard and two buttons appear, *Settings*
-and *Close* (quits Shoji). A right click anywhere, or holding a finger in that corner, brings them up too. The tray
-icon's menu has the same and more, on desktops that show one.
+**Settings and closing**: move the mouse over the dashboard and two buttons appear in the top right corner,
+*Settings* and *Close* (quits Shoji); they also show for a few seconds when Shoji starts. A right click anywhere, or
+holding a finger in that corner, brings them up too. The tray icon's menu has the same and more, on desktops that
+show one.
 
 ## Scenes
 

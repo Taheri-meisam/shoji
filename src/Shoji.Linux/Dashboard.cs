@@ -601,6 +601,12 @@ public sealed class Dashboard : Window, IDashboardHost
     void ShowEdges(Point? mouse)
     {
         _cornerNear = mouse is { } at && InCorner(at) && !SwipeInProgress;
+        // Only real movement counts: the same position again (a redraw under a resting pointer) shows nothing.
+        if (mouse is { } now && (Math.Abs(now.X - _cornerMouse.X) > 2 || Math.Abs(now.Y - _cornerMouse.Y) > 2))
+        {
+            _cornerMouse = now;
+            PinCorner(3.5);
+        }
         UpdateCorner();
         bool can = mouse != null && _pages.Count > 1 && !_editor.IsOpen && !SwipeInProgress;
         double reach = Math.Min(90, Bounds.Width * 0.12);
@@ -626,11 +632,12 @@ public sealed class Dashboard : Window, IDashboardHost
     // ---------------------------------------------------------------- the window's own buttons: Settings and Close
 
     // The dashboard has no title bar, and a stock GNOME desktop shows no tray icon: without these there is nothing
-    // to close it with. Hidden until the mouse comes near the top right corner, a right click anywhere, or a
-    // long press in that corner (touch screens); they go away again by themselves.
+    // to close it with. They show for a few seconds when the dashboard starts and whenever the mouse moves over it
+    // (as a video player's controls do), on a right click, and on a long press in that corner (touch screens).
     readonly Border _corner = new() { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 12, 12, 0) };
-    readonly DispatcherTimer _cornerTimer = new() { Interval = TimeSpan.FromSeconds(6) }, _cornerHold = new() { Interval = TimeSpan.FromMilliseconds(650) };
+    readonly DispatcherTimer _cornerTimer = new(), _cornerHold = new() { Interval = TimeSpan.FromMilliseconds(650) };
     bool _cornerNear, _cornerPinned;
+    Point _cornerMouse;
 
     void BuildCorner()
     {
@@ -670,6 +677,8 @@ public sealed class Dashboard : Window, IDashboardHost
                 _cornerHold.Start();
         }, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, (_, _) => _cornerHold.Stop(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        if (!_headless)
+            Opened += (_, _) => PinCorner(8); // so they are seen once, right where they will be
     }
 
     Border CornerButton(string glyph, string name, Action action)
@@ -687,11 +696,12 @@ public sealed class Dashboard : Window, IDashboardHost
 
     bool InCorner(Point p) => p.Y < 110 && p.X > Bounds.Width - Math.Max(220, Bounds.Width * 0.2);
 
-    /// <summary>Shows the buttons for a few seconds wherever the pointer is (right click, long press).</summary>
-    void PinCorner()
+    /// <summary>Shows the buttons for a few seconds wherever the pointer is (start, mouse movement, right click, long press).</summary>
+    void PinCorner(double seconds = 6)
     {
         _cornerPinned = true;
         _cornerTimer.Stop();
+        _cornerTimer.Interval = TimeSpan.FromSeconds(seconds);
         _cornerTimer.Start();
         UpdateCorner();
     }
@@ -706,8 +716,16 @@ public sealed class Dashboard : Window, IDashboardHost
         {
             _corner.Background = UI.Theme.Solid(UI.Theme.TileColor, 0xF2);
             _corner.BorderBrush = UI.Theme.Solid(UI.Theme.TextColor, 0x30);
+            // Sized for the screen: easy to hit on a big monitor, not in the way on a small panel.
+            double size = Math.Clamp(Math.Min(Bounds.Width, Bounds.Height) / 18, 46, 76);
             foreach (var child in ((StackPanel)_corner.Child!).Children)
-                ((TextBlock)((Border)child).Child!).Foreground = UI.Theme.Text;
+            {
+                var button = (Border)child;
+                button.Width = button.Height = size;
+                var glyph = (TextBlock)button.Child!;
+                glyph.FontSize = Math.Round(size * 0.52);
+                glyph.Foreground = UI.Theme.Text;
+            }
         }
         _corner.Opacity = show ? 1 : 0;
     }

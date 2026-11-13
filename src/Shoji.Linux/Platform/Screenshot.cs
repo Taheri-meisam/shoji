@@ -73,6 +73,15 @@ public static class Screenshot
             }
         }
 
+        // SHOJI_MOUSE_MOVE="x,y" (test only): move the mouse there once the page is up (brings up the Settings / Close buttons).
+        if (Environment.GetEnvironmentVariable("SHOJI_MOUSE_MOVE") is { } move && dashboard == window)
+        {
+            var n = move.Split(',').Select(v => double.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            var t = Stopwatch.StartNew();
+            while (t.Elapsed.TotalSeconds < 1) { Dispatcher.UIThread.RunJobs(); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Thread.Sleep(20); }
+            window.MouseMove(new Point(n[0], n[1]));
+        }
+
         // Let the sensors publish a few times and the tiles settle. A stopwatch, not the wall clock: the regression
         // script freezes that. Demo data goes in at two fixed points (so the number of updates never depends on timing),
         // the second one late enough for the calendar and web value to have loaded.

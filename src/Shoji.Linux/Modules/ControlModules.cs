@@ -22,7 +22,7 @@ public sealed class DeckModule : Module
 
     readonly IDashboardHost _host;
     readonly List<Cell> _cells = new();
-    readonly bool _usesAudio;
+    readonly bool _usesAudio, _hasSubs;
     readonly IDisposable? _obs; // keeps OBS connected while this deck has OBS buttons
     int _obsQueued;
 
@@ -31,6 +31,7 @@ public sealed class DeckModule : Module
         _host = host;
         var buttons = config.Buttons ?? DeckDefaults.Buttons();
         _usesAudio = buttons.Any(b => b.Action?.ToLowerInvariant() is "mic" or "mute" or "volume" or "output");
+        _hasSubs = buttons.Any(b => b.Action?.ToLowerInvariant() is "mic" or "mute" or "volume" or "output" or "scenes" or "theme" or "page" or "obs");
         if (buttons.Any(ObsClient.IsObsButton))
         {
             _obs = ObsClient.Shared.Use(obs, ObsClient.MuteInputs(buttons));
@@ -67,7 +68,10 @@ public sealed class DeckModule : Module
             Margin = new Thickness(4),
             MinHeight = 0,
             ClipToBounds = true, // short tiles: cells shrink and clip instead of overlapping (WPF clipped by itself)
-            Child = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { icon, label, sub } },
+            Padding = new Thickness(4, 3, 4, 3),
+            // Icon, label and state line shrink together when the button is shorter than they need (many buttons on a
+            // short tile), instead of the state line being cut off at the bottom edge.
+            Child = new FitHeight(new StackPanel { Children = { icon, label, sub } }) { VerticalAlignment = VerticalAlignment.Center },
         };
         var cell = new Cell(b, box, icon, label, sub);
         _cells.Add(cell);
@@ -159,7 +163,9 @@ public sealed class DeckModule : Module
         }
 
         c.Sub.Text = sub ?? "";
-        c.Sub.IsVisible = !(sub == null);
+        // With any state line on the deck, every button keeps room for one: all labels then sit on one line and
+        // shrink by the same amount on a short tile.
+        c.Sub.IsVisible = _hasSubs || sub != null;
         var fg = active == true ? UI.Theme.Background : null;
         c.Box.Background = active == true ? danger ? UI.Theme.Crit : UI.Theme.Accent : UI.Theme.Track;
         c.Icon.Foreground = c.Label.Foreground = fg ?? UI.Theme.Text;
