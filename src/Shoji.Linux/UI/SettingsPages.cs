@@ -186,7 +186,7 @@ public sealed partial class SettingsWindow
             Children =
             {
                 icons, title,
-                new TextBlock { Text = L.T(description), FontSize = 12, TextWrapping = TextWrapping.Wrap, Height = 34, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 2, 0, 0), Foreground = Look.Text2 },
+                new TextBlock { Text = L.T(description), FontSize = 12, TextWrapping = TextWrapping.Wrap, Height = 50, MaxLines = 3, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 2, 0, 0), Foreground = Look.Text2, [ToolTip.TipProperty] = L.T(description) },
             },
         };
         var card = HoverCard(body, 200, new Thickness(14, 12));

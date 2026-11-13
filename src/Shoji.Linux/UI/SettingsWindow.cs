@@ -93,6 +93,13 @@ static class Look
         Set(button, "ButtonBackground");
         Set(buttonHover, "ButtonBackgroundPointerOver");
         Set(buttonPressed, "ButtonBackgroundPressed");
+        // The "Options" fold-outs under each tile: a light outline row, not a heavy filled bar per tile.
+        Set(Brushes.Transparent, "ExpanderHeaderBackground", "ExpanderContentBackground");
+        Set(Hover, "ExpanderHeaderBackgroundPointerOver", "ExpanderHeaderBackgroundPressed");
+        Set(Stroke, "ExpanderHeaderBorderBrush", "ExpanderHeaderBorderBrushPressed", "ExpanderContentBorderBrush");
+        Set(Text2, "ExpanderHeaderForeground", "ExpanderChevronForeground");
+        Set(Text1, "ExpanderHeaderForegroundPointerOver", "ExpanderHeaderForegroundPressed", "ExpanderChevronForegroundPointerOver", "ExpanderChevronForegroundPressed");
+        w.Resources["ExpanderMinHeight"] = 36.0;
         w.Resources["ControlCornerRadius"] = new CornerRadius(8);
         w.Resources["OverlayCornerRadius"] = new CornerRadius(10);
         w.Background = Bg;

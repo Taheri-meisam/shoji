@@ -427,7 +427,21 @@ public sealed class MediaModule : Module
             View = MakeTile(body, _app);
             return;
         }
-        View = MakeTile(Body(controls, top, _progress), _app);
+        // A tall tile (a wide one on a page with few rows) gives the cover the height the list would leave empty,
+        // instead of a small square over a blank band.
+        var normal = Body(controls, top, _progress);
+        normal.SizeChanged += (_, _) =>
+        {
+            double room = normal.Bounds.Height - _progress.Bounds.Height - controls.DesiredSize.Height - 16;
+            double size = Math.Round(Math.Clamp(room, 72, 150));
+            if (Math.Abs(size - artFrame.Width) < 1)
+                return;
+            artFrame.Width = artFrame.Height = _art.Width = _art.Height = size;
+            _art.Clip = new RectangleGeometry(new Rect(0, 0, size, size), 8, 8);
+            _note.FontSize = Math.Round(size * 0.42);
+            text.VerticalAlignment = size > 80 ? VerticalAlignment.Center : VerticalAlignment.Top;
+        };
+        View = MakeTile(normal, _app);
     }
 
     /// <summary>

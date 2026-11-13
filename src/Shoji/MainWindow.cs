@@ -678,7 +678,7 @@ public sealed class MainWindow : Window, IDashboardHost
     // are the visible way to reach Settings and to close Shoji. They show for a few seconds when the dashboard starts
     // and whenever the mouse moves over it (as a video player's controls do), on a right click, and on a long press
     // in that corner (touch screens).
-    readonly Border _corner = new() { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 12, 12, 0) };
+    readonly Border _corner = new() { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 8, 8, 0) };
     readonly DispatcherTimer _cornerTimer = new(), _cornerHold = new() { Interval = TimeSpan.FromMilliseconds(650) };
     bool _cornerNear, _cornerPinned, _cornerShown;
     Point _cornerMouse;
@@ -688,8 +688,7 @@ public sealed class MainWindow : Window, IDashboardHost
 
     void BuildCorner()
     {
-        _corner.CornerRadius = new CornerRadius(14);
-        _corner.Padding = new Thickness(4);
+        _corner.Padding = new Thickness(3);
         _corner.BorderThickness = new Thickness(1);
         _corner.Opacity = 0;
         _corner.IsHitTestVisible = false;
@@ -728,11 +727,20 @@ public sealed class MainWindow : Window, IDashboardHost
     {
         var b = new Border
         {
-            Width = 46, Height = 46, CornerRadius = new CornerRadius(10), Background = Brushes.Transparent, ToolTip = name,
-            Child = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 20, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            Background = Brushes.Transparent, ToolTip = name,
+            Child = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
         };
-        b.MouseEnter += (_, _) => b.Background = new SolidColorBrush(Theme.WithAlpha(Theme.TextColor, 0x24));
-        b.MouseLeave += (_, _) => b.Background = Brushes.Transparent;
+        // Quiet until pointed at: dim glyphs, the one under the mouse lights up.
+        b.MouseEnter += (_, _) =>
+        {
+            b.Background = new SolidColorBrush(Theme.WithAlpha(Theme.TextColor, 0x24));
+            ((TextBlock)b.Child).Foreground = Theme.Text;
+        };
+        b.MouseLeave += (_, _) =>
+        {
+            b.Background = Brushes.Transparent;
+            ((TextBlock)b.Child).Foreground = Theme.Dim;
+        };
         return Tap.On(b, action);
     }
 
@@ -759,14 +767,17 @@ public sealed class MainWindow : Window, IDashboardHost
         {
             _corner.Background = Theme.Tile;
             _corner.BorderBrush = new SolidColorBrush(Theme.WithAlpha(Theme.TextColor, 0x30));
-            // Sized for the screen: easy to hit on a big monitor, not in the way on a small panel.
-            double size = Math.Clamp(Math.Min(ActualWidth, ActualHeight) / 18, 46, 76);
+            // A small pill in the theme's own shape (square for the HUD themes), a little bigger on a big monitor.
+            double size = Math.Round(Math.Clamp(Math.Min(ActualWidth, ActualHeight) / 30, 30, 40));
+            bool square = Theme.Current.Shape is TileShape.Hud or TileShape.Chamfer;
+            _corner.CornerRadius = new CornerRadius(square ? 0 : size / 2 + 3);
             foreach (Border button in ((StackPanel)_corner.Child).Children)
             {
                 button.Width = button.Height = size;
+                button.CornerRadius = new CornerRadius(square ? 0 : size / 2);
                 var glyph = (TextBlock)button.Child;
-                glyph.FontSize = Math.Round(size * 0.44);
-                glyph.Foreground = Theme.Text;
+                glyph.FontSize = Math.Round(size * 0.42);
+                glyph.Foreground = Theme.Dim;
             }
         }
         _corner.BeginAnimation(OpacityProperty, new DoubleAnimation(show ? 1 : 0, TimeSpan.FromMilliseconds(160)));

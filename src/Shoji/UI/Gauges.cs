@@ -857,6 +857,7 @@ public sealed class OrbitGauge : Gauge
         sun.Freeze();
         dc.DrawEllipse(sun, null, c, R * 0.12, R * 0.12);
 
+        var labels = new List<(double X, double Y, double W)>(Bodies.Count);
         for (int i = 0; i < Bodies.Count; i++)
         {
             var (label, brush, unit) = Bodies[i];
@@ -873,7 +874,15 @@ public sealed class OrbitGauge : Gauge
             double ang = _angles[i] * Math.PI / 180, pr = 3 + v / 100 * 6;
             var p = new Point(c.X + Math.Cos(ang) * rx, c.Y + Math.Sin(ang) * ry);
             Dot(dc, p, pr, brush);
-            Text(dc, Has("i" + i) ? $"{label} {v:0}{unit}" : label, p.X + pr + 4, p.Y - pr - 4, Math.Max(9, Math.Min(13, R * 0.045)), P.Fg, P.Display, Align.Left);
+            // Labels of planets that pass close to each other would print over one another: a later one steps down
+            // a line (below its planet) until it is clear of the ones already drawn.
+            double size = Math.Max(9, Math.Min(13, R * 0.045));
+            string text = Has("i" + i) ? $"{label} {v:0}{unit}" : label;
+            double lx = p.X + pr + 4, ly = p.Y - pr - 4, lw = text.Length * size * 0.62;
+            for (int tries = 0; tries < 4 && labels.Exists(o => Math.Abs(o.Y - ly) < size * 1.15 && lx < o.X + o.W + 6 && o.X < lx + lw + 6); tries++)
+                ly += size * 1.25 + (tries == 0 ? pr * 2 + 8 : 0);
+            labels.Add((lx, ly, lw));
+            Text(dc, text, lx, ly, size, P.Fg, P.Display, Align.Left);
         }
     }
 }

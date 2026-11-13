@@ -634,15 +634,14 @@ public sealed class Dashboard : Window, IDashboardHost
     // The dashboard has no title bar, and a stock GNOME desktop shows no tray icon: without these there is nothing
     // to close it with. They show for a few seconds when the dashboard starts and whenever the mouse moves over it
     // (as a video player's controls do), on a right click, and on a long press in that corner (touch screens).
-    readonly Border _corner = new() { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 12, 12, 0) };
+    readonly Border _corner = new() { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 8, 8, 0) };
     readonly DispatcherTimer _cornerTimer = new(), _cornerHold = new() { Interval = TimeSpan.FromMilliseconds(650) };
     bool _cornerNear, _cornerPinned;
     Point _cornerMouse;
 
     void BuildCorner()
     {
-        _corner.CornerRadius = new CornerRadius(14);
-        _corner.Padding = new Thickness(4);
+        _corner.Padding = new Thickness(3);
         _corner.BorderThickness = new Thickness(1);
         _corner.Opacity = 0;
         _corner.IsHitTestVisible = false;
@@ -685,12 +684,21 @@ public sealed class Dashboard : Window, IDashboardHost
     {
         var b = new Border
         {
-            Width = 46, Height = 46, CornerRadius = new CornerRadius(10), Background = Brushes.Transparent,
-            Child = new TextBlock { Text = glyph, FontFamily = UI.Theme.Icons, FontSize = 24, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            Background = Brushes.Transparent,
+            Child = new TextBlock { Text = glyph, FontFamily = UI.Theme.Icons, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
         };
         ToolTip.SetTip(b, L.T(name));
-        b.PointerEntered += (_, _) => b.Background = UI.Theme.Solid(UI.Theme.TextColor, 0x24);
-        b.PointerExited += (_, _) => b.Background = Brushes.Transparent;
+        // Quiet until pointed at: dim glyphs, the one under the mouse lights up.
+        b.PointerEntered += (_, _) =>
+        {
+            b.Background = UI.Theme.Solid(UI.Theme.TextColor, 0x24);
+            ((TextBlock)b.Child!).Foreground = UI.Theme.Text;
+        };
+        b.PointerExited += (_, _) =>
+        {
+            b.Background = Brushes.Transparent;
+            ((TextBlock)b.Child!).Foreground = UI.Theme.Dim;
+        };
         return Tap.On(b, action);
     }
 
@@ -716,15 +724,18 @@ public sealed class Dashboard : Window, IDashboardHost
         {
             _corner.Background = UI.Theme.Solid(UI.Theme.TileColor, 0xF2);
             _corner.BorderBrush = UI.Theme.Solid(UI.Theme.TextColor, 0x30);
-            // Sized for the screen: easy to hit on a big monitor, not in the way on a small panel.
-            double size = Math.Clamp(Math.Min(Bounds.Width, Bounds.Height) / 18, 46, 76);
+            // A small pill in the theme's own shape (square for the HUD themes), a little bigger on a big monitor.
+            double size = Math.Round(Math.Clamp(Math.Min(Bounds.Width, Bounds.Height) / 30, 30, 40));
+            bool square = UI.Theme.Current.Shape is TileShape.Hud or TileShape.Chamfer;
+            _corner.CornerRadius = new CornerRadius(square ? 0 : size / 2 + 3);
             foreach (var child in ((StackPanel)_corner.Child!).Children)
             {
                 var button = (Border)child;
                 button.Width = button.Height = size;
+                button.CornerRadius = new CornerRadius(square ? 0 : size / 2);
                 var glyph = (TextBlock)button.Child!;
-                glyph.FontSize = Math.Round(size * 0.52);
-                glyph.Foreground = UI.Theme.Text;
+                glyph.FontSize = Math.Round(size * 0.56);
+                glyph.Foreground = UI.Theme.Dim;
             }
         }
         _corner.Opacity = show ? 1 : 0;
