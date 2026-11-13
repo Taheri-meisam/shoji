@@ -505,6 +505,24 @@ public sealed class Dashboard : Window, IDashboardHost
         return w > 0 ? w : 1;
     }
 
+    /// <summary>The share for a row that one photo frame or mirror fills from edge to edge (0 for any other row).</summary>
+    static double ShowpieceRow(Page page, List<(int Row, int Col, int Span)> placement, int row)
+    {
+        int only = -1;
+        for (int i = 0; i < page.Modules.Count; i++)
+            if (placement[i].Row == row)
+            {
+                if (only >= 0)
+                    return 0;
+                only = i;
+            }
+        if (only < 0 || placement[only].Span < page.Columns)
+            return 0;
+        // On a single column every tile is edge to edge: there only a tile set to "Full" width was meant as the showpiece.
+        var config = page.Modules[only].Config;
+        return page.Columns > 1 || config.Span >= 9 ? TileLayout.ShowpieceWeight(config.Type.ToLowerInvariant()) : 0;
+    }
+
     static void LayoutPage(Page page)
     {
         var grid = page.Grid;
@@ -518,7 +536,10 @@ public sealed class Dashboard : Window, IDashboardHost
         int rows = placement.Max(p => p.Row) + 1;
         bool tall = TileLayout.Tall(rows, page.Columns);
         for (int r = 0; r < rows; r++)
-            grid.RowDefinitions.Add(new RowDefinition(tall ? RowWeight(page, placement, r) : 1, GridUnitType.Star));
+            {
+            double showpiece = rows > 1 ? ShowpieceRow(page, placement, r) : 0;
+            grid.RowDefinitions.Add(new RowDefinition(showpiece > 0 ? showpiece : tall ? RowWeight(page, placement, r) : 1, GridUnitType.Star));
+        }
         for (int i = 0; i < page.Modules.Count; i++)
         {
             var view = page.Modules[i].View;

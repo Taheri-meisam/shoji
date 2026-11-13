@@ -340,6 +340,45 @@ public sealed partial class SettingsWindow
                 row.Children.Add(new TextBlock { Text = L.T("only to differ from Weather & time; clear it to use the shared location"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 300, Foreground = Look.Text2 });
                 options.Children.Add(row);
             }
+            else if (option.Choices is { } choices)
+            {
+                var row = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+                row.Children.Add(new TextBlock { Text = L.T(option.Label), VerticalAlignment = VerticalAlignment.Center, Width = 120, Foreground = Look.Text1 });
+                var list = Combo(choices.Select(c => L.T(c.Label)).ToList(), option.ChoiceIndex(m), i => Edit(x => option.SetChoice(x, i)));
+                list.Width = 300;
+                list.Margin = new Thickness(0, 0, 10, 0);
+                row.Children.Add(list);
+                row.Children.Add(new TextBlock { Text = L.T(option.Hint), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 380, Foreground = Look.Text2 });
+                options.Children.Add(row);
+            }
+            else if (option.Kind == OptionKind.Folder)
+            {
+                // A text box (a path can be typed or pasted) with a button that opens the desktop's folder dialog.
+                var row = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+                row.Children.Add(new TextBlock { Text = L.T(option.Label), VerticalAlignment = VerticalAlignment.Center, Width = 120, Foreground = Look.Text1 });
+                var box = TextField(option.Get(m), 300, v => Edit(x => option.Set(x, v)));
+                box.Margin = new Thickness(0, 0, 8, 0);
+                row.Children.Add(box);
+                var choose = Button("Choose…", async () =>
+                {
+                    Avalonia.Platform.Storage.IStorageFolder? start = null;
+                    try { start = await StorageProvider.TryGetFolderFromPathAsync(new Uri(Sensors.PhotoLibrary.ResolveFolder(option.Get(m)))); }
+                    catch { /* start wherever the dialog likes */ }
+                    var picked = await StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
+                    {
+                        Title = L.T(option.Label), AllowMultiple = false, SuggestedStartLocation = start,
+                    });
+                    if (picked.Count > 0 && Avalonia.Platform.Storage.StorageProviderExtensions.TryGetLocalPath(picked[0]) is { } path)
+                    {
+                        Edit(x => option.Set(x, path));
+                        Rebuild();
+                    }
+                });
+                choose.Margin = new Thickness(0, 0, 10, 0);
+                row.Children.Add(choose);
+                row.Children.Add(new TextBlock { Text = L.T(option.Hint), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 300, Foreground = Look.Text2 });
+                options.Children.Add(row);
+            }
             else
             {
                 options.Children.Add(Field(option.Label, option.Get(m), option.Hint, v => Edit(x => option.Set(x, v)), option.Kind == OptionKind.Secret));
@@ -352,6 +391,8 @@ public sealed partial class SettingsWindow
             options.Children.Add(edit);
         }
         var expander = new Expander { Header = L.T("Options"), Content = options, Margin = new Thickness(50, 2, 0, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
+        if (Environment.GetEnvironmentVariable("SHOJI_OPEN_OPTIONS") == "1")
+            expander.IsExpanded = true; // for screenshots of the option rows
 
         var body = new StackPanel { Children = { header, controls } };
         if (m.Type == "websites")

@@ -117,6 +117,12 @@ public static class TileLayout
         };
     }
 
+    /// <summary>
+    /// A photo frame or mirror that has a whole row to itself is the point of its page: its row gets this many
+    /// shares of the height against one for an ordinary row (0 = no such rule for this tile).
+    /// </summary>
+    public static double ShowpieceWeight(string type) => type is "photos" or "mirror" ? 2.4 : 0;
+
     /// <summary>True when a page's tiles are stacked tall (two or more rows per column), where rows use <see cref="HeightWeight"/>.</summary>
     public static bool Tall(int rows, int columns) => columns <= 2 && rows >= columns * 2 && rows >= 3;
 

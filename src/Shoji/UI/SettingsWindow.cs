@@ -1564,6 +1564,42 @@ public sealed partial class SettingsWindow : Window
                 row.Children.Add(Ref(new TextBlock { Text = L.T("only to differ from Weather & time; clear it to use the shared location"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 300 }, TextBlock.ForegroundProperty, TextSecondary));
                 options.Children.Add(row);
             }
+            else if (option.Choices is { } choices)
+            {
+                var row = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+                row.Children.Add(new TextBlock { Text = L.T(option.Label), VerticalAlignment = VerticalAlignment.Center, Width = 120 });
+                var list = Combo(choices.Select(c => L.T(c.Label)).ToList(), option.ChoiceIndex(m), i => Edit(x => option.SetChoice(x, i)));
+                list.Width = 300;
+                list.Margin = new Thickness(0, 0, 10, 0);
+                row.Children.Add(list);
+                row.Children.Add(Ref(new TextBlock { Text = L.T(option.Hint), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 380 }, TextBlock.ForegroundProperty, TextSecondary));
+                options.Children.Add(row);
+            }
+            else if (option.Kind == OptionKind.Folder)
+            {
+                // A text box (a path can be typed or pasted) with a button that opens the Windows folder dialog.
+                var row = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+                row.Children.Add(new TextBlock { Text = L.T(option.Label), VerticalAlignment = VerticalAlignment.Center, Width = 120 });
+                var box = TextField(option.Get(m), 300, v => Edit(x => option.Set(x, v)));
+                box.Margin = new Thickness(0, 0, 8, 0);
+                row.Children.Add(box);
+                var choose = Button(L.T("Choose…"), () =>
+                {
+                    var dialog = new Microsoft.Win32.OpenFolderDialog { Title = L.T(option.Label) };
+                    string start = Sensors.PhotoLibrary.ResolveFolder(option.Get(m));
+                    if (System.IO.Directory.Exists(start))
+                        dialog.InitialDirectory = start;
+                    if (dialog.ShowDialog(this) == true)
+                    {
+                        Edit(x => option.Set(x, dialog.FolderName));
+                        Rebuild();
+                    }
+                });
+                choose.Margin = new Thickness(0, 0, 10, 0);
+                row.Children.Add(choose);
+                row.Children.Add(Ref(new TextBlock { Text = L.T(option.Hint), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 300 }, TextBlock.ForegroundProperty, TextSecondary));
+                options.Children.Add(row);
+            }
             else
             {
                 options.Children.Add(Field(L.T(option.Label), option.Get(m), L.T(option.Hint), v => Edit(x => option.Set(x, v)), option.Kind == OptionKind.Secret));

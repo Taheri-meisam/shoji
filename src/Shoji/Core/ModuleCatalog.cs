@@ -4,11 +4,27 @@ using System.Linq;
 
 namespace Shoji.Core;
 
-public enum OptionKind { Text, Secret, Bool }
+public enum OptionKind { Text, Secret, Bool, Folder }
 
 /// <summary>A per-tile setting shown in Settings. Most live in <see cref="ModuleConfig.Options"/>; a few are typed fields.</summary>
 public sealed record OptionSpec(string Key, string Label, string Hint, OptionKind Kind = OptionKind.Text)
 {
+    /// <summary>
+    /// When the option has a fixed set of answers: what is saved and what Settings shows for it. The first one is the
+    /// default (saved as nothing). Settings draws these as a list instead of a text box.
+    /// </summary>
+    public (string Value, string Label)[]? Choices { get; init; }
+
+    /// <summary>Which of <see cref="Choices"/> a tile has now (the first when unset or unknown).</summary>
+    public int ChoiceIndex(ModuleConfig m)
+    {
+        string? value = Get(m)?.Trim();
+        int at = value == null || Choices == null ? -1 : Array.FindIndex(Choices, c => c.Value.Equals(value, StringComparison.OrdinalIgnoreCase));
+        return Math.Max(0, at);
+    }
+
+    public void SetChoice(ModuleConfig m, int index) => Set(m, index <= 0 || Choices == null || index >= Choices.Length ? null : Choices[index].Value);
+
     public string? Get(ModuleConfig m) => Key switch
     {
         "City" => m.City,
@@ -85,7 +101,7 @@ public static class ModuleCatalog
         new("processes", "Top processes", "プロセス", "Busiest apps by CPU, with RAM") { Styles = new (string, string)[] { ("classic", "List"), ("radar", "Radar") } },
         new("taskmanager", "Task manager", "タスク", "Live stream graph of the apps using your CPU, memory and disk, with a ranked list and sparklines; tap to switch view", 2, new[]
         {
-            new OptionSpec("Metric", "Starts on", "cpu (default), ram or disk"),
+            new OptionSpec("Metric", "Starts on", "what the graph shows first; tap the tile to switch") { Choices = new[] { ("cpu", "CPU"), ("ram", "Memory"), ("disk", "Disk") } },
             new OptionSpec("Seconds", "Graph length (s)", "30–120, default 90"),
         }) { Styles = new (string, string)[] { ("stream", "Stream graph"), ("ring", "Rings") } },
         new("temps", "Temperatures", "温度", "Every temperature sensor, found automatically") { Styles = new (string, string)[] { ("classic", "List"), ("tapes", "Flight tapes"), ("tubes", "Coolant tubes"), ("segments", "LED digits (hottest)") } },
@@ -103,7 +119,7 @@ public static class ModuleCatalog
         new("tasks", "Tasks & agents", "作業", "Long-running commands (\"shoji run npm test\") and coding agents such as Claude Code: what is still working, what has finished, and what is waiting for you"),
         new("powerprice", "Electricity price", "電気料金", "Norway's hourly spot price for your price area: what a kWh costs now, the cheapest hours ahead, and the whole day as bars (hvakosterstrommen.no; spot price without VAT and grid rent)", 1, new[]
         {
-            new OptionSpec("Area", "Price area", "NO1 east (default), NO2 south, NO3 mid, NO4 north, NO5 west"),
+            new OptionSpec("Area", "Price area", "where in Norway you live") { Choices = new[] { ("NO1", "NO1 East (Oslo)"), ("NO2", "NO2 South (Kristiansand)"), ("NO3", "NO3 Mid (Trondheim)"), ("NO4", "NO4 North (Tromsø)"), ("NO5", "NO5 West (Bergen)") } },
             new OptionSpec("Vat", "Add VAT %", "e.g. 25 to show prices with VAT; empty = the spot price as it is"),
             new OptionSpec("Hours", "Cheapest stretch (h)", "how long a run you look for (washing machine, car charging), default 3"),
         }),
@@ -147,11 +163,11 @@ public static class ModuleCatalog
         new("activity", "Activity", "活動", "App in focus and today's per-app usage"),
         new("photos", "Photo frame", "写真", "Your photos from a folder, one after another with a soft crossfade; tap for the next", 2, new[]
         {
-            new OptionSpec("Folder", "Folder", "default your Pictures folder"),
+            new OptionSpec("Folder", "Folder", "empty = your Pictures folder", OptionKind.Folder),
             new OptionSpec("Every", "Every (s)", "seconds per photo, default 20, at least 5"),
-            new OptionSpec("Fit", "Fit", "fill (crop to the tile, default) or fit (whole photo)"),
+            new OptionSpec("Fit", "Fit", "how a photo that isn't the tile's shape is shown") { Choices = new[] { ("fill", "Fill the tile (crops the edges)"), ("fit", "Whole photo (bars at the sides)") } },
             new OptionSpec("Shuffle", "Shuffle", "Shuffle the photos", OptionKind.Bool),
-            new OptionSpec("Caption", "Caption", "none (default), name, or date (when it was taken)"),
+            new OptionSpec("Caption", "Caption", "a line of text in the corner of each photo") { Choices = new[] { ("none", "None"), ("name", "File name"), ("date", "Date taken") } },
             new OptionSpec("Subfolders", "Subfolders", "Include subfolders", OptionKind.Bool),
         }),
 #if SHOJI_LINUX
@@ -229,6 +245,9 @@ public static class ModuleCatalog
         ("media", "Media", "Big now playing with synced lyrics"),
         ("ambient", "Ambient", "Big clock, weather, hourly forecast, system orbit, calendar, world clock"),
         ("desk", "Desk", "Weather, calendar, world clock and focus time"),
+        ("photoframe", "Photo frame", "Your photos across the screen, with the time, weather and music underneath"),
+        ("developer", "Developer", "Tasks & agents, flight recorder, GitHub, AI usage, CPU, memory, focus timer"),
+        ("home", "Home", "Clock, weather, agenda, calendar, photos and the electricity price"),
         ("everything", "Everything", "Every built-in tile that needs no setup"),
     };
 
@@ -244,6 +263,9 @@ public static class ModuleCatalog
             "deck" => new[] { "deck:9", "mixer", "timer" },
             "media" => new[] { "media:9!", "lyrics:9" },
             "ambient" => new[] { "clock:9!", "weather", "forecast:2", "overview", "calendar", "worldclock" },
+            "photoframe" => new[] { "photos:9", "clock", "weather", "media" },
+            "developer" => new[] { "tasks:2", "incidents:2", "github", "aiusage", "cpu", "memory", "timer" },
+            "home" => new[] { "clock:2", "weather", "photos", "forecast:2", "agenda", "calendar", "powerprice:2" },
             "desk" => new[] { "clock", "weather", "forecast:2", "calendar", "worldclock", "cpu", "memory", "timer", "activity", "media:2" },
             "everything" => new[]
             {
@@ -256,11 +278,13 @@ public static class ModuleCatalog
         {
             bool large = t.EndsWith('!');
             var parts = t.TrimEnd('!').Split(':');
-            var m = new ModuleConfig { Type = parts[0], Span = parts.Length > 1 ? int.Parse(parts[1]) : 1 };
+            var m = New(parts[0]); // with a new tile's own defaults (deck buttons, shuffled photos…)
+            m.Span = parts.Length > 1 ? int.Parse(parts[1]) : 1;
             if (large)
                 m.SetOpt("Large", "true");
-            if (m.Type == "deck")
-                m.Buttons = DeckDefaults.Buttons();
+            // Under the photo the clock is a narrow tile next to a Weather tile: it doesn't repeat the weather.
+            if (id == "photoframe" && m.Type == "clock")
+                m.SetOpt("HideWeather", "true");
             return m;
         }).ToList();
     }
@@ -279,8 +303,9 @@ public static class ModuleCatalog
             var m = existing ?? p;
             m.Enabled = true;
             m.Span = p.Span;
-            if (p.OptBool("Large"))
-                m.SetOpt("Large", "true");
+            foreach (var key in new[] { "Large", "HideWeather" })
+                if (p.OptBool(key))
+                    m.SetOpt(key, "true");
             result.Add(m);
         }
         foreach (var m in old.Where(m => !result.Contains(m)))

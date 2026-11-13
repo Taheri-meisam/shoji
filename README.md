@@ -142,7 +142,7 @@ Swipe between pages, or let scenes switch them for you (a game starts → Gaming
 | `agenda`     | Upcoming events from Google / Outlook / iCloud calendars (iCal link), coloured per calendar |
 | `notifications` | Discord, WhatsApp, mail and other notifications, newest first; tap one to dismiss it. Kept in memory only, never saved or sent to the phone page |
 | `webvalue`   | Any number or text from a web address or JSON API (a field like `current.temperature_2m` or `data.items[0].price`): big number with a graph, arc gauge or LED digits |
-| `photos`     | Photo frame: your pictures one by one with a soft crossfade (default the Pictures folder); tap for the next |
+| `photos`     | Photo frame: your pictures one by one with a soft crossfade (default the Pictures folder, or pick one with *Choose…* in its options); tap for the next. Full width with other tiles below, it takes most of the page |
 | `mirror`     | Live copy of your main screen (with the mouse pointer), another window (Discord, OBS stats, a minimap…) or an area of the screen |
 | `homeassistant` | Home Assistant: lights, switches, scenes, thermostats (current → target, with − / +), blinds, locks and media players (tap to switch; dimmable lights and numbers get − / + too), sensors and camera snapshots |
 | `aiusage`    | How much Claude Code and Codex were used on this PC: tokens in the last 5 and 24 hours, answers, per model, a bar per hour, and Codex's own limits with their reset times. Read from the logs they keep in your home folder; nothing is sent anywhere and no key is needed |
@@ -161,7 +161,7 @@ all-day events, time zones and cancelled events are handled; local `.ics` files 
 **Album art**: while music plays, the cover appears blurred and dimmed behind a page with Now playing (best on
 see-through themes such as Glass and Aurora). Switch it off in Settings → Appearance.
 
-**Bedside picture frame**: make a page with one big Photo frame and a clock, then let night mode or a scene
+**Bedside picture frame**: add a page and pick the *Photo frame* layout preset (a big photo with the time, weather and music under it), then let night mode or a scene
 (idle, or 22:00–07:00) switch to it.
 
 ## Power

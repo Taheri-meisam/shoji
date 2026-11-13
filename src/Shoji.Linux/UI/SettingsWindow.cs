@@ -235,6 +235,9 @@ public sealed partial class SettingsWindow : Window
     {
         var s = new SettingsWindow(dashboard) { Width = w, Height = h };
         s.Go(section);
+        // SHOJI_SETTINGS_SCROLL=pixels (test only): show the section from that far down.
+        if (double.TryParse(Environment.GetEnvironmentVariable("SHOJI_SETTINGS_SCROLL"), out double down) && down > 0)
+            s.Opened += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => s._scroll.Offset = new Vector(0, down), Avalonia.Threading.DispatcherPriority.Background);
         return s;
     }
 
