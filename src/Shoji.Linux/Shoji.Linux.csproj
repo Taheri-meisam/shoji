@@ -58,6 +58,9 @@
     <Compile Include="../Shoji/Sensors/PingMonitor.cs" Link="Shared/PingMonitor.cs" />
     <Compile Include="../Shoji/Sensors/PowerMeter.cs" Link="Shared/PowerMeter.cs" />
     <Compile Include="../Shoji/Sensors/RecapTracker.cs" Link="Shared/RecapTracker.cs" />
+    <Compile Include="../Shoji/Sensors/FlightRecorder.cs" Link="Shared/FlightRecorder.cs" />
+    <Compile Include="../Shoji/Sensors/TaskWatch.cs" Link="Shared/TaskWatch.cs" />
+    <Compile Include="../Shoji/Sensors/PowerPrice.cs" Link="Shared/PowerPrice.cs" />
     <Compile Include="../Shoji/Sensors/ServiceStore.cs" Link="Shared/ServiceStore.cs" />
     <Compile Include="../Shoji/Sensors/WebsiteMonitor.cs" Link="Shared/WebsiteMonitor.cs" />
     <Compile Include="../Shoji/Sensors/WeatherService.cs" Link="Shared/WeatherService.cs" />

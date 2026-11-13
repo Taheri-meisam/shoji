@@ -14,6 +14,10 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // "Shoji.exe task …" and "Shoji.exe hook claude" only report to the Tasks tile of the running dashboard
+        // (Sensors/TaskWatch.cs): no window, no settings read.
+        if (Shoji.Sensors.TaskCli.TryRun(args, out int result))
+            return result;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         HookErrors(app);
         // The language first, so the install / setup dialogs below speak it too (without creating config.json yet).

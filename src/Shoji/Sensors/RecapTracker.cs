@@ -18,7 +18,10 @@ public sealed record RecapInfo(
     double? AverageCpuLoad,
     double? AverageGpuLoad,
     double? MaxPing,
-    bool Live);
+    bool Live,
+    // Stutters the flight recorder counted during the session and what most of them coincided with (null without a Flight recorder tile).
+    int? Stutters = null,
+    string? StutterCause = null);
 
 /// <summary>
 /// Notices game sessions (a full-screen app that isn't a browser or video player) and keeps a summary:
@@ -47,6 +50,8 @@ public sealed class RecapTracker
         public DateTime LastSeen;
         public readonly List<double> Fps = new(), Lows = new(), CpuLoad = new(), GpuLoad = new();
         public double? MaxCpuTemp, MaxGpuTemp, MaxPing;
+        public int? Stutters;
+        public readonly Dictionary<string, int> Culprits = new(StringComparer.OrdinalIgnoreCase);
     }
 
     readonly object _gate = new();
@@ -89,6 +94,28 @@ public sealed class RecapTracker
         }
     }
 
+    /// <summary>
+    /// The flight recorder is running (a Flight recorder tile exists) and saw these this refresh: stutters during a
+    /// game are counted into its summary, with what they coincided with.
+    /// </summary>
+    public void Note(IReadOnlyList<Incident> incidents)
+    {
+        lock (_gate)
+        {
+            if (_current == null)
+                return;
+            _current.Stutters ??= 0;
+            foreach (var i in incidents)
+            {
+                if (i.Kind != "stutter")
+                    continue;
+                _current.Stutters++;
+                if (i.Culprit != null)
+                    _current.Culprits[i.Culprit] = _current.Culprits.GetValueOrDefault(i.Culprit) + 1;
+            }
+        }
+    }
+
     /// <summary>The game being played right now, or else the last finished session.</summary>
     public RecapInfo? Read()
     {
@@ -128,7 +155,8 @@ public sealed class RecapTracker
     static RecapInfo ToInfo(Session c, bool live) => new(
         c.App, c.Started.ToLocalTime(), (live ? DateTime.UtcNow : c.LastSeen) - c.Started,
         Avg(c.Fps), c.Lows.Count > 0 ? c.Lows.Min() : null,
-        c.MaxCpuTemp, c.MaxGpuTemp, Avg(c.CpuLoad), Avg(c.GpuLoad), c.MaxPing, live);
+        c.MaxCpuTemp, c.MaxGpuTemp, Avg(c.CpuLoad), Avg(c.GpuLoad), c.MaxPing, live,
+        c.Stutters, c.Culprits.Count > 0 ? c.Culprits.MaxBy(kv => kv.Value).Key : null);
 
     static double? Avg(List<double> v) => v.Count > 0 ? v.Average() : null;
     static double? Max(double? a, double? b) => b is double x ? Math.Max(a ?? x, x) : a;

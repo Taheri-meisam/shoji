@@ -342,7 +342,7 @@ public sealed partial class SettingsWindow : Window
             case "deck": AddDeck(config); AddObs(config); break;
             case "alerts": AddAlerts(config); break;
             case "phone": AddWeb(config); AddMqtt(config); break;
-            case "hardware": AddSensors(); break;
+            case "hardware": AddSensors(); AddAgents(); break;
             default: AddAbout(); break;
         }
         _scroll.Content = _panel;

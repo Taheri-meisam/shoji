@@ -99,6 +99,14 @@ public static class ModuleCatalog
         new("overview", "System orbit", "軌道", "Whole PC at a glance: CPU, GPU, RAM and network as orbiting planets or rings", 1)
             { Styles = new (string, string)[] { ("orbit", "Orbit"), ("rings", "Rings") } },
         new("recap", "Last session", "記録", "Summary of your last game: time played, FPS, peak temperatures"),
+        new("incidents", "Flight recorder", "異常", "What just happened? Notices stutters, a pinned CPU, overheating, full memory and ping jumps, and says what else was going on at that moment (the app that suddenly got busy, full graphics memory…)"),
+        new("tasks", "Tasks & agents", "作業", "Long-running commands (\"shoji run npm test\") and coding agents such as Claude Code: what is still working, what has finished, and what is waiting for you"),
+        new("powerprice", "Electricity price", "電気料金", "Norway's hourly spot price for your price area: what a kWh costs now, the cheapest hours ahead, and the whole day as bars (hvakosterstrommen.no; spot price without VAT and grid rent)", 1, new[]
+        {
+            new OptionSpec("Area", "Price area", "NO1 east (default), NO2 south, NO3 mid, NO4 north, NO5 west"),
+            new OptionSpec("Vat", "Add VAT %", "e.g. 25 to show prices with VAT; empty = the spot price as it is"),
+            new OptionSpec("Hours", "Cheapest stretch (h)", "how long a run you look for (washing machine, car charging), default 3"),
+        }),
         new("websites", "Websites", "サイト", "Your sites: up / down, response time, SSL certificate and domain expiry, page content check", 1, new[]
         {
             new OptionSpec("Interval", "Check every (s)", "default 60; a failed check is retried after 15 s"),

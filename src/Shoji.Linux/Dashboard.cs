@@ -128,6 +128,7 @@ public sealed class Dashboard : Window, IDashboardHost
         layers.Children.Add(_corner);
         _editor = new TileEditor(this); // long-press edit sheet (UI/TileEditor.cs), below the alert, toast and night layers
         layers.Children.Add(_editor);
+        layers.Children.Add(_meeting);
         layers.Children.Add(_alert);
         layers.Children.Add(_toast);
         // Night mode sheet: topmost (ZIndex), whatever else is added to the layers later.
@@ -191,6 +192,7 @@ public sealed class Dashboard : Window, IDashboardHost
         BuildEdge(_edgeLeft, "chevron_left", -1);
         BuildEdge(_edgeRight, "chevron_right", +1);
         BuildCorner();
+        BuildMeeting();
     }
 
     public LinuxCollector? Collector => _collector;
@@ -257,6 +259,8 @@ public sealed class Dashboard : Window, IDashboardHost
         _built = _config.Pages.Select(p => (p, p.Modules.Where(m => m.Enabled)
                 .Select(m => ModuleFactory.SafeCreate(m, _config, _collector!, this))
                 .Where(m => m != null).Select(m => m!).ToList())).ToList();
+        // Asked for inside the build, so the calendar poller counts as in use even when no tile shows a calendar.
+        _meetings = _config.MeetingReminder ? CalendarFeeds.Service(CalendarFeeds.For(null, _config)) : null;
         ServiceStore.EndBuild();
         _pages = new List<Page>();
         Arrange(keepConfigPage: showing);
@@ -293,6 +297,7 @@ public sealed class Dashboard : Window, IDashboardHost
             return;
         if (!_nightBlack) // nobody can see the tiles; they catch up when it wakes
             UpdateModules(s);
+        UpdateMeeting(s.Time);
         UpdateCover();
         if (_scenes.Update(_config, s))
             OnSceneChanged();
@@ -798,6 +803,95 @@ public sealed class Dashboard : Window, IDashboardHost
         _swipeStart = null;
         // Let the tiles' own release handlers (which run after this tunnel pass) see the flag, then clear it.
         Dispatcher.UIThread.Post(() => SwipeInProgress = false, DispatcherPriority.Background);
+    }
+
+    // ---------------------------------------------------------------- meeting reminder
+
+    // Two minutes before a calendar event starts (and until five minutes after) a card comes up at the top with a
+    // countdown and, when the event carries a meeting link, a Join button. The calendars are the ones from
+    // Settings → Weather & time; Settings → Weather & time → Calendars switches the reminder off.
+    AgendaService? _meetings;
+    readonly Border _meeting = new() { IsVisible = false, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top };
+    readonly TextBlock _meetingTitle = new() { FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis }, _meetingWhen = new(), _meetingIcon = new() { Text = "event", VerticalAlignment = VerticalAlignment.Center };
+    readonly TextBlock _meetingJoinText = new() { FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center }, _meetingCloseGlyph = new() { Text = "close", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+    readonly Border _meetingJoin = new() { VerticalAlignment = VerticalAlignment.Center }, _meetingClose = new() { Background = Brushes.Transparent, VerticalAlignment = VerticalAlignment.Center };
+    string? _meetingDismissed, _meetingLink, _meetingKey;
+
+    void BuildMeeting()
+    {
+        _meetingJoin.Child = _meetingJoinText;
+        _meetingClose.Child = _meetingCloseGlyph;
+        Tap.On(_meetingJoin, () =>
+        {
+            if (_meetingLink is { } link)
+                App.Open(link);
+            _meetingDismissed = _meetingKey;
+            _meeting.IsVisible = false;
+        });
+        Tap.On(_meetingClose, () =>
+        {
+            _meetingDismissed = _meetingKey;
+            _meeting.IsVisible = false;
+        });
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { _meetingTitle, _meetingWhen } };
+        _meeting.Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { _meetingIcon, text, _meetingJoin, _meetingClose } };
+    }
+
+    void UpdateMeeting(DateTime now)
+    {
+        // SHOJI_MEETING_LEAD (minutes, test only) announces further ahead, to check the card without waiting for a meeting.
+        double lead = double.TryParse(Environment.GetEnvironmentVariable("SHOJI_MEETING_LEAD"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double minutes) ? minutes : 2;
+        var e = _meetings == null || _nightDimmed || _editor.IsOpen ? null : CalendarFeeds.DueSoon(_meetings.State, now, TimeSpan.FromMinutes(lead));
+        string? key = e == null ? null : $"{e.Start:O}|{e.Title}";
+        if (key == null || key == _meetingDismissed)
+        {
+            _meeting.IsVisible = false;
+            return;
+        }
+        if (!_meeting.IsVisible || key != _meetingKey)
+        {
+            // Sized for the screen and in the theme's colours, like the tiles under it.
+            double size = Math.Round(Math.Clamp(Math.Min(Bounds.Width, Bounds.Height) / 34, 14, 28));
+            bool square = UI.Theme.Current.Shape is TileShape.Hud or TileShape.Chamfer;
+            _meeting.Margin = new Thickness(16, _alert.IsVisible ? 64 : 14, 16, 0);
+            _meeting.Padding = new Thickness(size, size * 0.6, size * 0.6, size * 0.6);
+            _meeting.CornerRadius = new CornerRadius(square ? 0 : size * 0.8);
+            _meeting.Background = UI.Theme.Solid(UI.Theme.TileColor, 0xF7);
+            _meeting.BorderBrush = UI.Theme.Accent;
+            _meeting.BorderThickness = new Thickness(1.5);
+            _meeting.BoxShadow = BoxShadows.Parse("0 6 24 0 #60000000");
+            _meetingIcon.FontFamily = _meetingCloseGlyph.FontFamily = UI.Theme.Icons;
+            _meetingIcon.FontSize = size * 1.7;
+            _meetingIcon.Foreground = UI.Theme.Accent;
+            _meetingIcon.Margin = new Thickness(0, 0, size * 0.7, 0);
+            _meetingTitle.FontFamily = _meetingWhen.FontFamily = _meetingJoinText.FontFamily = UI.Theme.Font;
+            _meetingTitle.FontSize = size * 1.15;
+            _meetingTitle.Foreground = UI.Theme.Text;
+            _meetingTitle.MaxWidth = Math.Max(160, Bounds.Width * 0.5);
+            _meetingWhen.FontSize = size * 0.9;
+            _meetingWhen.Foreground = UI.Theme.Dim;
+            _meetingJoin.Background = UI.Theme.Accent;
+            _meetingJoin.CornerRadius = new CornerRadius(square ? 0 : size * 0.5);
+            _meetingJoin.Padding = new Thickness(size * 1.1, size * 0.45);
+            _meetingJoin.Margin = new Thickness(size * 1.2, 0, 0, 0);
+            _meetingJoinText.FontSize = size;
+            _meetingJoinText.Foreground = UI.Theme.Background;
+            _meetingJoinText.Text = L.T("Join");
+            _meetingClose.Width = _meetingClose.Height = size * 2;
+            _meetingClose.Margin = new Thickness(size * 0.4, 0, 0, 0);
+            _meetingCloseGlyph.FontSize = size * 1.1;
+            _meetingCloseGlyph.Foreground = UI.Theme.Dim;
+            ToolTip.SetTip(_meetingClose, L.T("Dismiss"));
+        }
+        _meetingKey = key;
+        _meetingLink = e!.Link;
+        _meetingJoin.IsVisible = e.Link != null;
+        _meetingTitle.Text = e.Title;
+        double seconds = (e.Start - now).TotalSeconds;
+        _meetingWhen.Text = seconds > 0
+            ? L.F("starts in {0}", $"{(int)seconds / 60}:{(int)seconds % 60:00}")
+            : seconds > -60 ? L.T("starting now") : L.F("started {0} min ago", (int)(-seconds / 60));
+        _meeting.IsVisible = true;
     }
 
     // ---------------------------------------------------------------- overlays

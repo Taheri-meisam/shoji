@@ -15,6 +15,10 @@ static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // "shoji run <command>", "shoji task …" and "shoji hook claude" only report to the Tasks tile of the running
+        // dashboard (Sensors/TaskWatch.cs): quick, no window, no settings read.
+        if (Shoji.Sensors.TaskCli.TryRun(args, out int result))
+            return result;
         string? Arg(string name) => args.SkipWhile(a => a != name).Skip(1).FirstOrDefault();
         L.Apply(AppConfig.Load().Language); // before any text is made (screenshots and --install too)
 

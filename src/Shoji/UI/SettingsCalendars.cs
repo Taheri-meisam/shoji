@@ -64,6 +64,10 @@ public sealed partial class SettingsWindow
         add.HorizontalAlignment = HorizontalAlignment.Left;
         add.Margin = new Thickness(0, 12, 0, 12);
         rows.Children.Add(add);
+
+        var remind = Card();
+        Setting(remind, L.T("Meeting reminder"), L.T("Two minutes before an event starts, a card comes up on the dashboard with a countdown, and a Join button when the event has a meeting link (Meet, Teams, Zoom…)"),
+            Switch(config.MeetingReminder, v => Change(c => c.MeetingReminder = v)), last: true, icon: "\uE787");
     }
 
     static readonly string[] CalendarColours = { "#4FC3F7", "#81C784", "#FFD54F", "#FFB74D", "#E57373", "#F06292", "#BA68C8", "#4DB6AC" };

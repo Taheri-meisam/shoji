@@ -28,6 +28,8 @@ public sealed record Snapshot
     public PowerInfo? Power { get; init; }
     public IReadOnlyList<SiteStatus> Sites { get; init; } = Array.Empty<SiteStatus>();
     public RecapInfo? Recap { get; init; }
+    /// <summary>What the flight recorder noticed, newest first (only with a Flight recorder tile).</summary>
+    public IReadOnlyList<Incident> Incidents { get; init; } = Array.Empty<Incident>();
 
     /// <summary>The app in focus and how long the user has been away (always filled: scenes need them).</summary>
     public ForegroundInfo Foreground { get; init; } = ForegroundInfo.None;

@@ -29,7 +29,7 @@ public sealed class Collector : IDisposable
     readonly RecapTracker? _recap;
     readonly PowerMeter? _power;
     readonly WebsiteMonitor? _sites;
-    readonly bool _wantFps, _historyMemory, _historyNetwork;
+    readonly bool _wantFps, _historyMemory, _historyNetwork, _recorder;
     FpsMonitor? _fps;
     public MediaService Media { get; } = new();
 
@@ -52,8 +52,10 @@ public sealed class Collector : IDisposable
         bool Graph(string prefix) => series.Any(x => x.StartsWith(prefix));
         _historyMemory = Graph("mem.");
         _historyNetwork = Graph("net.");
-        _wantCpu = Has("cpu") || summary || Has("power") || Graph("cpu.") || Graph("power.");
-        _wantGpu = Has("gpu") || summary || Has("power") || Graph("gpu.") || Graph("power.");
+        // The flight recorder (Sensors/FlightRecorder.cs) watches CPU, GPU, memory, the busiest apps and the frame rate.
+        _recorder = Has("incidents");
+        _wantCpu = Has("cpu") || summary || Has("power") || Graph("cpu.") || Graph("power.") || _recorder;
+        _wantGpu = Has("gpu") || summary || Has("power") || Graph("gpu.") || Graph("power.") || _recorder;
         // Websites: every site from every Websites tile, checked once each (duplicates by URL are merged).
         var siteTiles = enabled.Where(m => m.Type.Equals("websites", StringComparison.OrdinalIgnoreCase)).ToList();
         var sites = siteTiles.SelectMany(m => m.Sites ?? new List<SiteRef>())
@@ -82,7 +84,7 @@ public sealed class Collector : IDisposable
             _ping = new PingMonitor(enabled.First(m => m.Type.Equals("ping", StringComparison.OrdinalIgnoreCase)).Host);
         else if (series.Contains("ping"))
             _ping = new PingMonitor(null);
-        _wantFps = Has("fps") || Has("recap") || series.Contains("fps") || config.Web.Enabled;
+        _wantFps = Has("fps") || Has("recap") || series.Contains("fps") || config.Web.Enabled || _recorder;
         if (Has("recap"))
             _recap = new RecapTracker();
     }
@@ -153,6 +155,12 @@ public sealed class Collector : IDisposable
                     var snapshot = await CollectAsync();
                     _recap?.Sample(snapshot);
                     Record(snapshot);
+                    if (_recorder)
+                    {
+                        var noticed = FlightRecorder.Shared.Sample(snapshot, _config.TempCrit);
+                        _recap?.Note(noticed);
+                        snapshot = snapshot with { Incidents = FlightRecorder.Shared.Recent };
+                    }
                     if (!ct.IsCancellationRequested)
                         _publish(_recap == null ? snapshot : snapshot with { Recap = _recap.Read() });
                 }
@@ -200,11 +208,11 @@ public sealed class Collector : IDisposable
             Power = _power != null && _hardware != null ? _power.Read(_hardware.ReadPower(), cpu) : null,
             Sites = _sites?.Read() ?? (IReadOnlyList<SiteStatus>)Array.Empty<SiteStatus>(),
             Gpu = _wantGpu ? _hardware?.ReadGpu() : null,
-            Memory = Has("memory") || Has("status") || Has("overview") || Has("taskmanager") || _historyMemory ? SystemStats.ReadMemory() : null,
+            Memory = Has("memory") || Has("status") || Has("overview") || Has("taskmanager") || _historyMemory || _recorder ? SystemStats.ReadMemory() : null,
             Network = Has("network") || Has("overview") || _historyNetwork ? _system.ReadNetwork() : null,
             Disks = Has("disks") || Has("status") ? _system.ReadDisks() : Array.Empty<DiskInfo>(),
             DiskIo = Has("disks") ? _system.ReadDiskIo() : null,
-            TopProcesses = Has("processes") || Has("taskmanager") ? _system.ReadTopProcesses(6, table: Has("taskmanager")) : Array.Empty<ProcessInfo>(),
+            TopProcesses = Has("processes") || Has("taskmanager") || _recorder ? _system.ReadTopProcesses(6, table: Has("taskmanager")) : Array.Empty<ProcessInfo>(),
             Processes = Has("taskmanager") ? _system.ProcessTable : null,
             Activity = _activity?.Sample(),
             Sensors = Has("sensors") && _hardware != null ? _hardware.ReadAll() : new Dictionary<string, SensorValue>(),

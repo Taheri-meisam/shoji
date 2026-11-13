@@ -60,7 +60,8 @@ public sealed class FpsModule : Module
 public sealed class RecapModule : Module
 {
     readonly TextBlock _game, _when, _note;
-    readonly TextBlock _fps, _low, _cpuTemp, _gpuTemp, _cpuLoad, _gpuLoad, _ping;
+    readonly TextBlock _fps, _low, _cpuTemp, _gpuTemp, _cpuLoad, _gpuLoad, _ping, _stutters;
+    readonly Grid _stutterRow; // only with a Flight recorder tile, which counts them
 
     public RecapModule(ModuleConfig config) : base(config, "Last session")
     {
@@ -74,8 +75,10 @@ public sealed class RecapModule : Module
             W.SpacedColumns(W.Row("Avg FPS", out _fps), W.Row("Worst 1%", out _low)),
             W.SpacedColumns(W.Row("CPU max", out _cpuTemp), W.Row("GPU max", out _gpuTemp)),
             W.SpacedColumns(W.Row("CPU avg", out _cpuLoad), W.Row("GPU avg", out _gpuLoad)),
-            W.Row("Worst ping", out _ping));
+            W.Row("Worst ping", out _ping),
+            _stutterRow = W.Row("Stutters", out _stutters));
         rows.Margin = new Thickness(0, 8, 0, 0);
+        _stutterRow.IsVisible = false;
         View = MakeTile(Body(_note, _game, _when, rows.ShowFrom(Density.Normal)));
     }
 
@@ -101,6 +104,9 @@ public sealed class RecapModule : Module
         _cpuLoad.Text = W.Format(r.AverageCpuLoad, "0", "%");
         _gpuLoad.Text = W.Format(r.AverageGpuLoad, "0", "%");
         _ping.Text = W.Format(r.MaxPing, "0", " ms");
+        _stutterRow.IsVisible = r.Stutters != null;
+        _stutters.Text = r.Stutters is not int n ? "" : n == 0 ? L.T("none") : r.StutterCause == null ? n.ToString() : L.F("{0} · mostly {1}", n, r.StutterCause);
+        _stutters.Foreground = r.Stutters > 0 ? UI.Theme.Warn : UI.Theme.Text;
     }
 }
 

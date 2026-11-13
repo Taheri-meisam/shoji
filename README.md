@@ -132,6 +132,9 @@ Swipe between pages, or let scenes switch them for you (a game starts → Gaming
 | `power`      | Whole-PC power draw (measured CPU and GPU + estimate for the rest, or a smart PSU's own reading), breakdown, energy today and its cost |
 | `fps`        | Frame rate, 1% low and frame time of the app in focus (DirectX 9–12; needs admin) |
 | `recap`      | Your current / last game session: time played, average and worst FPS, peak temperatures, loads, worst ping |
+| `incidents`  | **Flight recorder**: what just happened? Stutters, a pinned CPU, overheating, full memory and ping jumps, each with what else was going on at that moment |
+| `tasks`      | **Tasks & agents**: long commands (`shoji run npm test`) and coding agents such as Claude Code: still working, finished, or waiting for you |
+| `powerprice` | **Electricity price** (Norway): the spot price this hour, the cheapest hours ahead, the day as bars |
 | `history`    | Graphs of the last 1–24 hours: temperatures, loads, FPS, ping, network (kept across restarts) |
 | `deck`       | Control deck: touch buttons that open apps / websites, press hotkeys, mute the mic, switch audio output, change power plan, take screenshots, run scripts, change page or theme… |
 | `mixer`      | Master volume, microphone and per-app volume sliders; tap a name to mute, tap the device to switch output |
@@ -285,6 +288,46 @@ show OBS's state like a Stream Deck: Record turns red with a running `REC 12:34`
 scene is lit and muted inputs turn red; they dim while OBS is closed. Setup: in OBS, Tools → WebSocket Server
 Settings → Enable (OBS 28+); in Shoji, Settings → Control deck → OBS Studio, enter the password and press Test
 connection. Shoji only talks to OBS while a deck has OBS buttons.
+
+## Flight recorder, tasks and meeting reminders
+
+**Flight recorder** (`incidents` tile). The PC hitches or the fans spin up, and by the time a task manager is open
+the cause is gone. With this tile on a page, Shoji keeps the last minute of readings and writes the moment down when
+something goes wrong, together with what changed just before it:
+
+- *Stutter: 118 → 54 fps*: chrome jumped to 46% CPU
+- *Graphics memory full*: 23.6 of 24 GB in use
+- *GPU reached 86°*, *CPU pinned at 99%*, *Memory almost full*, *Ping jumped to 240 ms*
+
+A stutter is a frame rate well under the last minute's usual one (needs the FPS source: admin on Windows, MangoHud on
+Linux); heat uses the "hot" temperature from Settings → Alerts. With a **Last session** tile too, its summary gains
+"Stutters: 5 · mostly chrome". Nothing is saved to disk or sent anywhere.
+
+**Tasks & agents** (`tasks` tile). Start a build or a coding agent, switch away, and find out ten minutes later that
+it finished, or was waiting for an answer. The tile lists what is running, what has finished and what needs you, and
+says so in a toast on whatever page is showing.
+
+- Coding agents: Claude Code sessions are found by themselves ("Finished · your turn"). Settings → Hardware sensors →
+  *Tasks & agents* → **Connect** adds hooks to Claude Code's `settings.json` (a copy is kept, other hooks stay), and
+  the tile then also knows the moment a session needs a permission or an answer.
+- Any command (Linux): `shoji run npm test` shows the command until it ends, then whether it worked and how long it
+  took. It returns the command's own exit code, so it can stay in scripts.
+- Anything else: `shoji task running --title "Backup"`, later `shoji task done --title "Backup"` (or `failed`,
+  `waiting`, `remove`; on Windows `Shoji.exe task …`). Each task is a small JSON file in the data folder's `tasks`
+  folder; finished ones tidy themselves away after 20 minutes, a tap removes one at once.
+
+**Meeting reminder.** Two minutes before a calendar event starts (calendars: Settings → Weather & time), a card comes
+up at the top of the dashboard with a countdown, and a **Join** button when the event carries a meeting link (Meet,
+Teams, Zoom, Webex, Whereby, Jitsi…). It stays until five minutes after the start or until dismissed. Switch it off
+under Settings → Weather & time → Calendars → *Meeting reminder*.
+
+**Electricity price** (`powerprice` tile, Norway). The day-ahead spot price for your price area (option *Price area*,
+NO1–NO5) from [hvakosterstrommen.no](https://www.hvakosterstrommen.no): what a kWh costs now, when the cheapest three
+hours ahead start (option *Cheapest stretch*), and the day as bars with cheap hours in green and dear ones in amber;
+tomorrow's prices join in the afternoon. It is the spot price without grid rent; option *Add VAT %* adds VAT.
+
+**A deck per app** needs nothing new: make a page with a Control deck for that app and a scene (Settings → Scenes)
+that shows the page while the app is in focus.
 
 ## Website monitoring
 
@@ -685,7 +728,7 @@ catalog, scenes, alerts, weather, websites, integrations, web server, themes, la
 
 `scripts/theme-regression.sh` renders every theme on seven test pages (`tests/regression/config`), plus Midnight and Sakura in portrait, with fixed demo
 data and a frozen clock, using the Linux edition's headless renderer, and compares each picture with
-`tests/regression/baselines/` (210 pictures, ~2 minutes). It writes a report with the differences highlighted and
+`tests/regression/baselines/` (240 pictures, ~2 minutes). It writes a report with the differences highlighted and
 exits 1 when something changed. After an intended visual change, run it with `--update`; `--themes matcha,tokyo`
 and `--pages 1,3` narrow it down. Needs gcc and python3 with Pillow. Baselines depend on the machine's fonts, so a
 new machine starts with `--update`.

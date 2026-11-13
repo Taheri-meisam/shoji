@@ -10,7 +10,8 @@ using Shoji.Core;
 namespace Shoji.Sensors;
 
 /// <summary>One occurrence of a calendar event, in local time. All-day events run from midnight to midnight.</summary>
-public sealed record AgendaEvent(DateTime Start, DateTime? End, string Title, string? Location, bool AllDay, int Calendar)
+/// <param name="Link">The meeting's link (Meet, Teams, Zoom…) when the event carries one.</param>
+public sealed record AgendaEvent(DateTime Start, DateTime? End, string Title, string? Location, bool AllDay, int Calendar, string? Link = null)
 {
     /// <summary>When it's over: the end, else the next midnight (all-day) or the start itself.</summary>
     public DateTime Until => End is DateTime e && e > Start ? e : AllDay ? Start.Date.AddDays(1) : Start;
@@ -156,7 +157,8 @@ public sealed class AgendaService : Poller<IReadOnlyList<AgendaEvent>>
                     end = end is DateTime d && d.Date > start ? d.Date : start.AddDays(1);
                 }
                 list.Add(new AgendaEvent(start, end, string.IsNullOrWhiteSpace(ev.Summary) ? L.T("(no title)") : ev.Summary.Trim(),
-                    string.IsNullOrWhiteSpace(ev.Location) ? null : ev.Location, allDay, calendar));
+                    string.IsNullOrWhiteSpace(ev.Location) ? null : ev.Location, allDay, calendar,
+                    CalendarFeeds.MeetingLink(ev.Url?.ToString(), ev.Location, ev.Description)));
             }
         }
         return list;
@@ -235,6 +237,40 @@ public static class CalendarFeeds
         int minutes = (int)Math.Ceiling((next.Start - now).TotalMinutes);
         string when = minutes < 60 ? L.F("in {0} min", minutes) : minutes % 60 == 0 ? L.F("in {0} h", minutes / 60) : L.F("in {0} h {1} min", minutes / 60, minutes % 60);
         return L.F("Next: {0} {1}", next.Title, when);
+    }
+
+    static readonly System.Text.RegularExpressions.Regex LinkPattern = new(@"https?://[^\s<>""')\]]+", System.Text.RegularExpressions.RegexOptions.Compiled);
+    static readonly string[] MeetingHosts = { "meet.google.", "teams.microsoft.", "teams.live.", "zoom.us", "webex.com", "whereby.com", "meet.jit.si", "gotomeeting.", "bluejeans.", "discord.gg", "discord.com/" };
+
+    /// <summary>The link to join with: a known meeting service anywhere in the event wins, then the event's own URL, then a link in the location.</summary>
+    public static string? MeetingLink(string? url, string? location, string? description)
+    {
+        var links = new[] { url, location, description }
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .SelectMany(t => LinkPattern.Matches(t!).Select(m => m.Value.TrimEnd('.', ',', ';')))
+            .ToList();
+        return links.FirstOrDefault(l => MeetingHosts.Any(h => l.Contains(h, StringComparison.OrdinalIgnoreCase)))
+               ?? (url != null && LinkPattern.IsMatch(url) ? links.FirstOrDefault(l => url.Contains(l, StringComparison.Ordinal)) : null)
+               ?? (location != null ? LinkPattern.Match(location) is { Success: true } m ? m.Value : null : null);
+    }
+
+    /// <summary>
+    /// The timed event to announce now: one that starts within <paramref name="lead"/>, or began less than five
+    /// minutes ago (you may be late for it). The soonest wins; all-day events never count.
+    /// </summary>
+    public static AgendaEvent? DueSoon(IReadOnlyList<AgendaEvent>? events, DateTime now, TimeSpan lead)
+    {
+        AgendaEvent? best = null;
+        if (events == null)
+            return null;
+        foreach (var e in events)
+        {
+            if (e.AllDay || e.Start - now > lead || now - e.Start > TimeSpan.FromMinutes(5) || e.End is DateTime end && end <= now)
+                continue;
+            if (best == null || e.Start < best.Start)
+                best = e;
+        }
+        return best;
     }
 
     /// <summary>For each day of the month: which calendars have something on it (at most three, for the dots).</summary>

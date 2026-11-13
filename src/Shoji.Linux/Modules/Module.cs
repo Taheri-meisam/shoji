@@ -171,6 +171,9 @@ public static class ModuleFactory
             case "battery": return style == "classic" ? new BatteryModule(config) : new BatteryGaugeModule(config, style);
             case "fps": return style == "classic" ? new FpsModule(config) : new FpsGaugeModule(config, style);
             case "recap": return new RecapModule(config);
+            case "incidents": return new IncidentsModule(config);
+            case "tasks": return new TasksModule(config, host);
+            case "powerprice": return new PowerPriceModule(config);
             case "history": return new HistoryModule(config);
             case "deck": return new DeckModule(config, host, app.Obs);
             case "mixer": return new MixerModule(config);

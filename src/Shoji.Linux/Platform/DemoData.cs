@@ -60,6 +60,24 @@ public static class Demo
         ProcessHistory.Shared.Seed(Enumerable.Range(-ProcessHistory.Capacity + Steps, ProcessHistory.Capacity).Select(Processes));
     }
 
+    /// <summary>The Flight recorder tile's made-up list.</summary>
+    static readonly IReadOnlyList<Incident> Incidents = new[]
+    {
+        new Incident(Now.AddSeconds(-95), "stutter", "Stutter: 118 → 54 fps", "chrome jumped to 46% CPU", 1, "chrome"),
+        new Incident(Now.AddMinutes(-9), "vram", "Graphics memory full", "23.6 of 24 GB in use", 1, "graphics memory"),
+        new Incident(Now.AddMinutes(-21), "heat-gpu", "GPU reached 86°", "GPU load 99%", 2),
+        new Incident(Now.AddMinutes(-48), "ping", "Ping jumped to 240 ms", "usually 16 ms, while downloading at 82 Mbps", 1, "a download"),
+    };
+
+    /// <summary>The Tasks tile's made-up list: an agent waiting, a build running, a test run done.</summary>
+    public static IReadOnlyList<TaskItem> Tasks() => new[]
+    {
+        new TaskItem { Id = "a", Kind = "agent", Title = "Claude Code · shoji", Detail = "Claude needs your permission to use Bash", State = "waiting", Started = Now.ToUniversalTime().AddMinutes(-6), Changed = Now.ToUniversalTime().AddMinutes(-2) },
+        new TaskItem { Id = "b", Kind = "command", Title = "dotnet build -c Release", Detail = "shoji", State = "running", Started = Now.ToUniversalTime().AddSeconds(-134), Changed = Now.ToUniversalTime().AddSeconds(-134) },
+        new TaskItem { Id = "c", Kind = "command", Title = "npm test", Detail = "website", State = "done", ExitCode = 0, Started = Now.ToUniversalTime().AddMinutes(-9), Changed = Now.ToUniversalTime().AddMinutes(-5) },
+        new TaskItem { Id = "d", Kind = "command", Title = "rsync photos nas:", Detail = "Pictures", State = "failed", ExitCode = 23, Started = Now.ToUniversalTime().AddMinutes(-31), Changed = Now.ToUniversalTime().AddMinutes(-12) },
+    };
+
     /// <summary>Called by LinuxCollector.Start instead of polling: the screenshot run decides when snapshots are published.</summary>
     internal static void Attach(Action<Snapshot> publish) => _publish = publish;
 
@@ -163,6 +181,7 @@ public static class Demo
                 new PowerPart("CPU", 88, false), new PowerPart("GPU", 286, false), new PowerPart("Rest of PC", 45, true),
             }, 1840, 620),
             Recap = new RecapInfo("Elden Ring", Now.Date.AddDays(-1).AddHours(21).AddMinutes(10), new TimeSpan(1, 52, 0), 96, 71, 78, 74, 41, 88, 31, false),
+            Incidents = Incidents,
             Temps = new[]
             {
                 new SensorReading("CPU package", "k10temp", 64), new SensorReading("CPU CCD 1", "k10temp", 61),
@@ -198,13 +217,29 @@ public static class Demo
                 {
                     "/calendar.ics" => Calendar(),
                     "/value.json" => "{\"visitors\": 1287, \"outside\": {\"temp\": 12.4}, \"status\": \"All systems go\"}",
-                    _ => uri.AbsolutePath.StartsWith("/api/states/", StringComparison.Ordinal) ? HomeState(uri.AbsolutePath["/api/states/".Length..]) : null,
+                    _ => uri.AbsolutePath.StartsWith("/api/states/", StringComparison.Ordinal) ? HomeState(uri.AbsolutePath["/api/states/".Length..])
+                        : uri.AbsolutePath.StartsWith("/prices/", StringComparison.Ordinal) ? Prices(uri.AbsolutePath)
+                        : null,
                 };
                 if (body != null)
                     return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8) });
             }
             throw new HttpRequestException("demo mode: no network");
         }
+    }
+
+    /// <summary>A made-up day of electricity prices (cheap at night, peaks in the morning and early evening); tomorrow isn't published yet.</summary>
+    static string? Prices(string path)
+    {
+        if (!path.Contains(Now.ToString("yyyy'/'MM-dd", CultureInfo.InvariantCulture), StringComparison.Ordinal))
+            return null;
+        var hours = Enumerable.Range(0, 24).Select(h =>
+        {
+            double price = 0.62 + 0.55 * Math.Exp(-Math.Pow(h - 8, 2) / 5.0) + 0.85 * Math.Exp(-Math.Pow(h - 18, 2) / 6.0) + 0.05 * Math.Sin(h * 1.3);
+            var start = Now.Date.AddHours(h);
+            return $"{{\"NOK_per_kWh\":{price.ToString("0.0000", CultureInfo.InvariantCulture)},\"time_start\":\"{start:yyyy-MM-dd'T'HH:mm:ss}+00:00\",\"time_end\":\"{start.AddHours(1):yyyy-MM-dd'T'HH:mm:ss}+00:00\"}}";
+        });
+        return "[" + string.Join(",", hours) + "]";
     }
 
     /// <summary>A small made-up home for the Home Assistant tile.</summary>
@@ -241,7 +276,7 @@ public static class Demo
             sb.Append("END:VEVENT\r\n");
         }
         Event(day.AddHours(9), TimeSpan.FromMinutes(15), "Standup");
-        Event(day.AddHours(15).AddMinutes(30), TimeSpan.FromHours(1), "Design review", "Room Fuji");
+        Event(day.AddHours(15).AddMinutes(30), TimeSpan.FromHours(1), "Design review", "Room Fuji https://meet.google.com/abc-defg-hij");
         Event(day.AddHours(18), TimeSpan.FromMinutes(90), "Climbing", "Oslo Klatresenter");
         Event(day.AddDays(1), null, "Mum's birthday");
         Event(day.AddDays(1).AddHours(10), TimeSpan.FromMinutes(45), "Dentist");

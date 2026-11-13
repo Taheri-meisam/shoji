@@ -115,6 +115,9 @@ public sealed class AppConfig
     /// <summary>iCal links shared by the Agenda, Clock and Calendar tiles (an Agenda tile can still list its own).</summary>
     public List<CalendarLink> Calendars { get; set; } = new();
 
+    /// <summary>A card on the dashboard two minutes before a calendar event starts, with a Join button when it has a meeting link.</summary>
+    public bool MeetingReminder { get; set; } = true;
+
     [JsonIgnore]
     public bool Fahrenheit => TemperatureUnit.StartsWith("F", StringComparison.OrdinalIgnoreCase);
 

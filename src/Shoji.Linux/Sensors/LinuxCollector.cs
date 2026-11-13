@@ -23,7 +23,7 @@ public sealed class LinuxCollector : IDisposable
     LinuxGpu? _gpu;
     LinuxHwmon? _hwmon;
     LinuxFps? _fps;
-    readonly bool _wantFps;
+    readonly bool _wantFps, _recorder;
     readonly RecapTracker? _recap;
     readonly LinuxStats _system = new();
     readonly WeatherService? _weather;
@@ -54,8 +54,10 @@ public sealed class LinuxCollector : IDisposable
         bool Graph(string prefix) => series.Any(x => x.StartsWith(prefix, StringComparison.Ordinal));
         _historyMemory = Graph("mem.");
         _historyNetwork = Graph("net.");
-        _wantCpu = Has("cpu") || summary || Has("power") || Graph("cpu.") || Graph("power.");
-        _wantGpu = Has("gpu") || summary || Has("power") || Graph("gpu.") || Graph("power.");
+        // The flight recorder (Sensors/FlightRecorder.cs) watches CPU, GPU, memory, the busiest apps and the frame rate.
+        _recorder = Has("incidents");
+        _wantCpu = Has("cpu") || summary || Has("power") || Graph("cpu.") || Graph("power.") || _recorder;
+        _wantGpu = Has("gpu") || summary || Has("power") || Graph("gpu.") || Graph("power.") || _recorder;
         // The temps and sensors tiles show the GPU too; NVIDIA's temperature only comes from nvidia-smi.
         _wantGpuReader = _wantGpu || Has("temps") || Has("sensors");
         _wantHwmon = Has("sensors") || Has("temps") || Has("fans");
@@ -82,7 +84,7 @@ public sealed class LinuxCollector : IDisposable
         }
         _wantFocus = NeedsFocus(config);
         // Frame rate from MangoHud's logs; the Last session tile pairs it with the full-screen app in focus.
-        _wantFps = Has("fps") || Has("recap") || series.Contains("fps") || config.Web.Enabled;
+        _wantFps = Has("fps") || Has("recap") || series.Contains("fps") || config.Web.Enabled || _recorder;
         if (Has("recap"))
             _recap = new RecapTracker();
         if (Has("ping"))
@@ -178,6 +180,12 @@ public sealed class LinuxCollector : IDisposable
                     var snapshot = await CollectAsync().ConfigureAwait(false);
                     Record(snapshot);
                     _recap?.Sample(snapshot);
+                    if (_recorder)
+                    {
+                        var noticed = FlightRecorder.Shared.Sample(snapshot, _config.TempCrit);
+                        _recap?.Note(noticed);
+                        snapshot = snapshot with { Incidents = FlightRecorder.Shared.Recent };
+                    }
                     if (!ct.IsCancellationRequested)
                         _publish(_recap == null ? snapshot : snapshot with { Recap = _recap.Read() });
                 }
@@ -245,11 +253,11 @@ public sealed class LinuxCollector : IDisposable
             Power = _power?.Read(ReadPower(cpu, gpus), cpu),
             Sites = _sites?.Read() ?? (IReadOnlyList<SiteStatus>)Array.Empty<SiteStatus>(),
             Gpu = gpu,
-            Memory = Has("memory") || Has("status") || Has("overview") || Has("taskmanager") || _historyMemory ? LinuxStats.ReadMemory() : null,
+            Memory = Has("memory") || Has("status") || Has("overview") || Has("taskmanager") || _historyMemory || _recorder ? LinuxStats.ReadMemory() : null,
             Network = Has("network") || Has("overview") || _historyNetwork ? _system.ReadNetwork() : null,
             Disks = Has("disks") || Has("status") ? _system.ReadDisks() : Array.Empty<DiskInfo>(),
             DiskIo = Has("disks") ? _system.ReadDiskIo() : null,
-            TopProcesses = Has("processes") || Has("taskmanager") ? _system.ReadTopProcesses(6, table: Has("taskmanager")) : Array.Empty<ProcessInfo>(),
+            TopProcesses = Has("processes") || Has("taskmanager") || _recorder ? _system.ReadTopProcesses(6, table: Has("taskmanager")) : Array.Empty<ProcessInfo>(),
             Processes = Has("taskmanager") ? _system.ProcessTable : null,
             Sensors = Has("sensors") ? ReadSensors(gpus) : new Dictionary<string, SensorValue>(),
             Temps = Has("temps") ? ReadTemps(gpus) : Array.Empty<SensorReading>(),

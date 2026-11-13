@@ -415,6 +415,30 @@
           "Options": {}
         }
       ]
+    },
+    {
+      "Name": "Tools",
+      "Columns": 0,
+      "Modules": [
+        {
+          "Type": "incidents",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {}
+        },
+        {
+          "Type": "tasks",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {}
+        },
+        {
+          "Type": "powerprice",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {}
+        }
+      ]
     }
   ],
   "PageCycleSeconds": 0,

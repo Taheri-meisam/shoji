@@ -137,7 +137,7 @@ static class Icons
         ["agenda"] = new("event_note", TimeA, TimeB), ["weather"] = new("wb_cloudy", TimeA, TimeB), ["forecast"] = new("wb_sunny", TimeA, TimeB),
         ["timer"] = new("timer", TimeA, TimeB),
         ["deck"] = new("keyboard", CtrlA, CtrlB), ["homeassistant"] = new("home", CtrlA, CtrlB), ["mirror"] = new("cast", CtrlA, CtrlB),
-        ["status"] = new("verified_user", InfoA, InfoB), ["recap"] = new("star", InfoA, InfoB), ["activity"] = new("insights", InfoA, InfoB),
+        ["status"] = new("verified_user", InfoA, InfoB), ["recap"] = new("star", InfoA, InfoB), ["incidents"] = new("insights", HeatA, HeatB), ["tasks"] = new("check_circle", InfoA, InfoB), ["powerprice"] = new("bolt", TimeA, TimeB), ["activity"] = new("insights", InfoA, InfoB),
         ["battery"] = new("battery_full", InfoA, InfoB), ["disks"] = new("storage", InfoA, InfoB), ["drivehealth"] = new("favorite", InfoA, InfoB), ["aiusage"] = new("smart_toy", InfoA, InfoB), ["github"] = new("code", InfoA, InfoB),
         ["ticker"] = new("trending_up", InfoA, InfoB), ["system"] = new("computer", InfoA, InfoB),
         ["photos"] = new("photo_library", MediaA, MediaB),
@@ -460,7 +460,7 @@ public sealed partial class SettingsWindow : Window
             case "deck": AddDeck(config); AddObs(config); break;
             case "alerts": AddAlerts(config); break;
             case "phone": AddWeb(config); AddMqtt(config); break;
-            case "hardware": AddHardware(config); break;
+            case "hardware": AddHardware(config); AddAgents(); break;
             default: AddAbout(); break;
         }
         _scroll.Content = _panel;
