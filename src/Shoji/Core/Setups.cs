@@ -10,8 +10,8 @@ namespace Shoji.Core;
 /// <summary>One page of a setup: its name and tiles, written like a layout preset ("fps:2", "clock:9!").</summary>
 public sealed record SetupPage(string Name, string[] Tiles);
 
-/// <summary>A theme together with pages made for it.</summary>
-public sealed record SetupDef(string Id, string Name, string Theme, string Description, SetupPage[] Pages);
+/// <summary>Four pages that go together for one kind of use. The theme stays whatever is chosen.</summary>
+public sealed record SetupDef(string Id, string Name, string Description, SetupPage[] Pages);
 
 /// <summary>The layout someone had before they applied a setup, kept in the data folder so it can be brought back.</summary>
 public sealed class SetupBackup
@@ -23,84 +23,77 @@ public sealed class SetupBackup
     public string? BackgroundColor { get; set; }
     public string? TileColor { get; set; }
     public bool DayNight { get; set; }
+    /// <summary>True for backups from 1.20 / 1.21, whose setups also changed the theme: only those give the theme back.</summary>
+    public bool Themed { get; set; } = true;
     /// <summary>The pages as the setup left them: while they're untouched, trying another setup keeps this backup.</summary>
     public string? Applied { get; set; }
 }
 
 /// <summary>
-/// Setups: ready-made dashboards, each a theme plus the pages that suit it (Settings → Appearance). Applying one
-/// replaces the pages and the theme; tiles keep their own settings where the same kind of tile was already there
-/// (city, deck buttons, tokens), and the layout from before is saved so it can be brought back.
+/// Setups: ready-made dashboards of four pages each, for one kind of use (Settings → Appearance). Applying one
+/// replaces the pages and leaves the theme alone, so any theme can be put on any setup; tiles keep their own settings
+/// where the same kind of tile was already there (city, deck buttons, tokens), and the layout from before is saved
+/// so it can be brought back.
 /// </summary>
 public static class Setups
 {
     public static readonly IReadOnlyList<SetupDef> All = new SetupDef[]
     {
-        new("cockpit", "Cockpit", "hypercar", "For gaming: an FPS speedometer, LED arcs and temperature tubes, and a pit page that shows what the PC is doing", new SetupPage[]
+        new("everyday", "Everyday", "A bit of everything: the PC at a glance, your day, a control deck and the music", new SetupPage[]
         {
-            new("Drive", new[] { "fps:2", "cpu", "gpu", "temps", "power", "status", "ping" }),
-            new("Pit", new[] { "taskmanager:2", "incidents:2", "network", "disks", "memory", "recap" }),
+            new("Main", new[] { "clock:2", "cpu", "gpu", "memory", "power", "network", "status" }),
+            new("Day", new[] { "clock:2", "weather", "calendar", "forecast:2", "agenda", "worldclock" }),
+            new("Control", new[] { "deck:9", "mixer", "timer", "notifications" }),
+            new("Music", new[] { "media:9!", "lyrics:9" }),
         }),
-        new("mission", "Mission control", "mission", "Segment digits and scopes: the whole PC on one page, tasks, agents and the flight recorder on the next", new SetupPage[]
+        new("gaming", "Gaming", "Frame rate and heat while you play, what happened afterwards, and a deck for the things you reach for", new SetupPage[]
         {
-            new("Flight", new[] { "clock:2", "cpu", "gpu", "memory", "power", "network", "status" }),
-            new("Ops", new[] { "taskmanager:2", "tasks:2", "incidents:2", "temps", "ping" }),
+            new("Play", new[] { "fps:2", "cpu", "gpu", "temps", "power", "status", "ping" }),
+            new("Session", new[] { "recap", "incidents:2", "network", "memory", "disks", "history:2" }),
+            new("Control", new[] { "deck:9", "mixer", "media", "notifications" }),
+            new("System", new[] { "taskmanager:2", "processes", "fans", "drivehealth", "system" }),
         }),
-        new("zen", "Zen desk", "sumi", "Ink on paper: the time, weather and calendar, a photo frame page and a quiet focus page", new SetupPage[]
-        {
-            new("Desk", new[] { "clock:2", "weather", "calendar", "forecast:2", "agenda", "worldclock" }),
-            new("Frame", new[] { "photos:9", "clock?HideWeather", "weather", "media" }),
-            new("Focus", new[] { "timer", "cpu", "memory", "media" }),
-        }),
-        new("developer", "Developer", "tokyonight", "Editor colours: tasks, agents, CI and AI usage up front, the machine on a second page", new SetupPage[]
+        new("developer", "Developer", "Tasks, agents and CI up front, the machine behind them, a focus page and a deck", new SetupPage[]
         {
             new("Code", new[] { "tasks:2", "incidents:2", "github", "aiusage", "cpu", "memory" }),
             new("System", new[] { "taskmanager:2", "gpu", "network", "disks", "temps" }),
+            new("Focus", new[] { "timer", "agenda", "calendar", "media" }),
+            new("Control", new[] { "deck:9", "mixer", "notifications", "websites" }),
         }),
-        new("living", "Living room", "aurora", "Northern lights: time, weather, photos and what's coming up, with a music page for the song and its lyrics", new SetupPage[]
-        {
-            new("Home", new[] { "clock:2", "weather", "photos", "forecast:2", "agenda", "calendar" }),
-            new("Music", new[] { "media:9!", "lyrics:9" }),
-        }),
-        new("tourer", "Grand tour", "tourer", "Racing green and brass for a night drive: speedometers for frame rate and power, then the trip computer", new SetupPage[]
-        {
-            new("Dash", new[] { "fps:2", "power", "cpu", "gpu", "temps", "status" }),
-            new("Trip", new[] { "recap", "incidents:2", "network", "ping", "memory", "disks" }),
-        }),
-        new("arcade", "Arcade", "arcade", "Pixel type and LED digits: frame rate, heat and the last game, with the music on its own page", new SetupPage[]
-        {
-            new("Play", new[] { "fps", "cpu", "gpu", "temps", "power", "recap" }),
-            new("Jukebox", new[] { "media:2", "mixer", "lyrics:9" }),
-        }),
-        new("stream", "Streamer", "tokyo", "Neon for going live: control deck, chat and the mixer in reach, the stream's health next door", new SetupPage[]
+        new("stream", "Streamer", "Going live: deck, chat and mixer in reach, the stream's health, your alerts and the music", new SetupPage[]
         {
             new("Live", new[] { "deck:2", "twitch", "mixer", "media", "status" }),
             new("Health", new[] { "fps", "cpu", "gpu", "network", "temps", "incidents" }),
+            new("Chat", new[] { "twitch:2", "notifications", "clock" }),
+            new("Music", new[] { "media:9!", "lyrics:9" }),
         }),
-        new("server", "Server room", "terminal", "Green phosphor for a machine that works for a living: sites, drives, network, and who is using what", new SetupPage[]
-        {
-            new("Watch", new[] { "websites:2", "ping", "network", "status", "drivehealth", "disks" }),
-            new("Load", new[] { "taskmanager:2", "cpu", "memory", "temps", "history:2" }),
-        }),
-        new("office", "Home office", "daylight", "Light and clear for the working day: agenda, tasks and a focus timer, the PC on a second page", new SetupPage[]
+        new("office", "Home office", "The working day: agenda, tasks and a focus timer, then the PC, a deck and the wider world", new SetupPage[]
         {
             new("Today", new[] { "clock:2", "weather", "timer", "agenda", "calendar", "tasks:2" }),
             new("PC", new[] { "cpu", "memory", "network", "battery", "processes:2", "disks" }),
+            new("Control", new[] { "deck:9", "mixer", "notifications", "media" }),
+            new("World", new[] { "worldclock", "weather", "forecast:2", "ticker:9" }),
         }),
-        new("smarthome", "Smart home", "fjord", "Calm arctic colours for the house: lights and thermostats, the weather, and what electricity costs right now", new SetupPage[]
+        new("home", "Family home", "For a screen in the house: the day ahead, lights and electricity price, a photo frame and the music", new SetupPage[]
         {
+            new("Home", new[] { "clock:2", "weather", "photos", "forecast:2", "agenda", "calendar" }),
             new("House", new[] { "homeassistant:2", "clock", "weather", "powerprice:2", "forecast:2" }),
-            new("Family", new[] { "photos", "calendar", "agenda", "worldclock" }),
-        }),
-        new("bedside", "Bedside", "oled", "Pure black for the night: a big clock, tomorrow's weather and first appointment, and a photo frame", new SetupPage[]
-        {
-            new("Night", new[] { "clock:9!", "weather", "agenda" }),
             new("Frame", new[] { "photos:9", "clock?HideWeather", "weather", "media" }),
+            new("Music", new[] { "media:9!", "lyrics:9" }),
         }),
-        new("paper", "Quiet paper", "eink", "Like an e-reader on the desk: no colour, just the day, the weather and what's next", new SetupPage[]
+        new("server", "Server & monitoring", "For a machine that works for a living: sites and drives, who is using what, the hardware and the network", new SetupPage[]
         {
-            new("Day", new[] { "clock:2", "weather", "calendar", "forecast:2", "agenda", "worldclock" }),
-            new("Read", new[] { "notifications:2", "timer", "media" }),
+            new("Watch", new[] { "websites:2", "ping", "network", "status", "drivehealth", "disks" }),
+            new("Load", new[] { "taskmanager:2", "cpu", "memory", "temps", "history:2" }),
+            new("Hardware", new[] { "cpu", "gpu", "memory", "power", "temps", "fans", "disks", "system" }),
+            new("Events", new[] { "incidents:2", "tasks:2", "notifications:2", "processes", "clock" }),
+        }),
+        new("bedside", "Bedside & ambient", "Quiet pages for a screen you glance at: a big clock, a photo frame, the weather and the music", new SetupPage[]
+        {
+            new("Clock", new[] { "clock:9!", "weather", "agenda" }),
+            new("Frame", new[] { "photos:9", "clock?HideWeather", "weather", "media" }),
+            new("Weather", new[] { "weather", "forecast:2", "calendar", "worldclock:2" }),
+            new("Music", new[] { "media:9!", "lyrics:9" }),
         }),
     };
 
@@ -126,7 +119,7 @@ public static class Setups
     }
 
     /// <summary>
-    /// Replaces the pages and the theme with the setup's. Throws when the layout from before can't be saved (then
+    /// Replaces the pages with the setup's (the theme stays). Throws when the layout from before can't be saved (then
     /// nothing is changed).
     /// </summary>
     public static void Apply(AppConfig config, SetupDef setup)
@@ -138,13 +131,12 @@ public static class Setups
             {
                 Saved = DateTime.Now,
                 Pages = JsonSerializer.Deserialize<List<PageConfig>>(JsonSerializer.Serialize(config.Pages))!,
-                Theme = config.Theme, AccentColor = config.AccentColor, BackgroundColor = config.BackgroundColor, TileColor = config.TileColor,
-                DayNight = config.DayNight.Enabled,
+                Themed = false,
             };
         AtomicFile.WriteAllText(BackupPath, JsonSerializer.Serialize(backup, Json));
 
-        // Tiles of a kind that was already somewhere keep what was set on them, except their style: the setup is
-        // about the theme's own gauges.
+        // Tiles of a kind that was already somewhere keep what was set on them, except their style: with a setup the
+        // gauges follow whichever theme is picked next.
         var had = config.Pages.SelectMany(p => p.Modules).ToList();
         var pages = new List<PageConfig>();
         foreach (var page in setup.Pages)
@@ -169,28 +161,31 @@ public static class Setups
             pages.Add(new PageConfig { Name = L.T(page.Name), Modules = modules });
         }
         config.Pages = pages;
-        config.Theme = setup.Theme;
-        config.AccentColor = config.BackgroundColor = config.TileColor = null;
-        config.DayNight.Enabled = false; // or the day / night themes would hide the setup's theme
         config.Normalize();
 
         backup.Applied = JsonSerializer.Serialize(config.Pages);
         AtomicFile.WriteAllText(BackupPath, JsonSerializer.Serialize(backup, Json));
     }
 
-    /// <summary>Brings back the pages, theme and colours from before the first setup. False when there was nothing saved.</summary>
+    /// <summary>
+    /// Brings back the pages from before the first setup. The theme is left as it is now (a setup doesn't change it;
+    /// backups written by 1.20 / 1.21, whose setups did, still give their theme and colours back).
+    /// </summary>
     public static bool Restore(AppConfig config)
     {
         var backup = LoadBackup();
         if (backup == null || backup.Pages.Count == 0)
             return false;
         config.Pages = backup.Pages;
-        if (backup.Theme != null)
-            config.Theme = backup.Theme;
-        config.AccentColor = backup.AccentColor;
-        config.BackgroundColor = backup.BackgroundColor;
-        config.TileColor = backup.TileColor;
-        config.DayNight.Enabled = backup.DayNight;
+        if (backup.Themed)
+        {
+            if (backup.Theme != null)
+                config.Theme = backup.Theme;
+            config.AccentColor = backup.AccentColor;
+            config.BackgroundColor = backup.BackgroundColor;
+            config.TileColor = backup.TileColor;
+            config.DayNight.Enabled = backup.DayNight;
+        }
         config.Normalize();
         try
         {

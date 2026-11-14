@@ -26,7 +26,7 @@ public sealed partial class SettingsWindow
 
     void AddThemes(AppConfig config)
     {
-        AddSetups(config); // a theme plus pages made for it (SettingsSetups.cs)
+        AddSetups(config); // four ready-made pages per kind of use; the theme is picked separately (SettingsSetups.cs)
         var current = UI.Theme.Find(config.Theme).Id;
         Section("Theme", config.DayNight.Enabled
             ? "Day and night themes are on (below), so they decide what you see; this theme is used when they're switched off."

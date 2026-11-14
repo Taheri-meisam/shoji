@@ -468,28 +468,24 @@ apps, with a still layer behind the tiles and a 20 fps moving layer only while A
 
 ### Setups
 
-A setup is a theme together with pages made for it, applied in one go from **Settings → Appearance → Setups**:
+A setup is four ready-made pages for one kind of use, applied in one go from **Settings → Appearance → Setups**.
+It doesn't touch the theme: pick a setup, then put any theme on it (or the other way round).
 
-| Setup | Theme | Pages |
-|---|---|---|
-| Cockpit | Hypercar | *Drive*: FPS speedometer, CPU, GPU, temperatures, power, status lamps, ping · *Pit*: task manager, flight recorder, network, drives, memory, last session |
-| Mission control | Mission Control | *Flight*: clock, CPU, GPU, memory, power, network, status lamps · *Ops*: task manager, tasks & agents, flight recorder, temperatures, ping |
-| Zen desk | Sumi-e | *Desk*: clock, weather, calendar, hourly forecast, agenda, world clock · *Frame*: photo frame with time, weather and music · *Focus*: focus timer, CPU, memory, now playing |
-| Developer | Tokyo Night | *Code*: tasks & agents, flight recorder, GitHub, AI usage, CPU, memory · *System*: task manager, GPU, network, drives, temperatures |
-| Living room | Aurora | *Home*: clock, weather, photos, hourly forecast, agenda, calendar · *Music*: now playing and lyrics |
-| Grand tour | Grand Tourer | *Dash*: FPS and power speedometers, CPU, GPU, temperatures, status lamps · *Trip*: last session, flight recorder, network, ping, memory, drives |
-| Arcade | Arcade | *Play*: FPS, CPU, GPU, temperatures, power, last session · *Jukebox*: now playing, volume mixer, lyrics |
-| Streamer | Tokyo Neon | *Live*: control deck, Twitch chat, volume mixer, now playing, status lamps · *Health*: FPS, CPU, GPU, network, temperatures, flight recorder |
-| Server room | Terminal | *Watch*: websites, ping, network, status lamps, drive health, drives · *Load*: task manager, CPU, memory, temperatures, history |
-| Home office | Daylight | *Today*: clock, weather, focus timer, agenda, calendar, tasks & agents · *PC*: CPU, memory, network, battery, top processes, drives |
-| Smart home | Fjord | *House*: Home Assistant, clock, weather, electricity price, hourly forecast · *Family*: photos, calendar, agenda, world clock |
-| Bedside | OLED Black | *Night*: a big clock, weather, agenda · *Frame*: photo frame with time, weather and music |
-| Quiet paper | E-ink | *Day*: clock, weather, calendar, hourly forecast, agenda, world clock · *Read*: notifications, focus timer, now playing |
+| Setup | Pages |
+|---|---|
+| Everyday | *Main*: clock, CPU, GPU, memory, power, network, status lamps · *Day*: clock, weather, calendar, hourly forecast, agenda, world clock · *Control*: control deck, volume mixer, focus timer, notifications · *Music*: now playing and lyrics |
+| Gaming | *Play*: FPS, CPU, GPU, temperatures, power, status lamps, ping · *Session*: last session, flight recorder, network, memory, drives, history · *Control*: control deck, volume mixer, now playing, notifications · *System*: task manager, top processes, fans, drive health, system |
+| Developer | *Code*: tasks & agents, flight recorder, GitHub, AI usage, CPU, memory · *System*: task manager, GPU, network, drives, temperatures · *Focus*: focus timer, agenda, calendar, now playing · *Control*: control deck, volume mixer, notifications, websites |
+| Streamer | *Live*: control deck, Twitch chat, volume mixer, now playing, status lamps · *Health*: FPS, CPU, GPU, network, temperatures, flight recorder · *Chat*: Twitch chat, notifications, clock · *Music*: now playing and lyrics |
+| Home office | *Today*: clock, weather, focus timer, agenda, calendar, tasks & agents · *PC*: CPU, memory, network, battery, top processes, drives · *Control*: control deck, volume mixer, notifications, now playing · *World*: world clock, weather, hourly forecast, markets |
+| Family home | *Home*: clock, weather, photos, hourly forecast, agenda, calendar · *House*: Home Assistant, clock, weather, electricity price, hourly forecast · *Frame*: photo frame with time, weather and music · *Music*: now playing and lyrics |
+| Server & monitoring | *Watch*: websites, ping, network, status lamps, drive health, drives · *Load*: task manager, CPU, memory, temperatures, history · *Hardware*: CPU, GPU, memory, power, temperatures, fans, drives, system · *Events*: flight recorder, tasks & agents, notifications, top processes, clock |
+| Bedside & ambient | *Clock*: a big clock, weather, agenda · *Frame*: photo frame with time, weather and music · *Weather*: weather, hourly forecast, calendar, world clock · *Music*: now playing and lyrics |
 
-Picking one replaces your pages and theme (and switches day / night themes off, so the setup's theme shows). Tiles of
-a kind you already had keep their own settings: city, deck buttons, tokens. The layout from before is saved in the
-data folder (`before-setup.json`); **Bring it back** on the same page restores it, also after trying several setups
-in a row.
+Picking one replaces your pages. Tiles of a kind you already had keep their own settings (city, deck buttons,
+tokens), except a style chosen for one tile, so the gauges follow whichever theme you pick. The pages from before
+are saved in the data folder (`before-setup.json`); **Bring it back** on the same page restores them, also after
+trying several setups in a row.
 
 ## Gauge styles
 
