@@ -263,7 +263,8 @@ public static class ModuleCatalog
             "deck" => new[] { "deck:9", "mixer", "timer" },
             "media" => new[] { "media:9!", "lyrics:9" },
             "ambient" => new[] { "clock:9!", "weather", "forecast:2", "overview", "calendar", "worldclock" },
-            "photoframe" => new[] { "photos:9", "clock", "weather", "media" },
+            // Under the photo the clock is a narrow tile next to a Weather tile: it doesn't repeat the weather.
+            "photoframe" => new[] { "photos:9", "clock?HideWeather", "weather", "media" },
             "developer" => new[] { "tasks:2", "incidents:2", "github", "aiusage", "cpu", "memory", "timer" },
             "home" => new[] { "clock:2", "weather", "photos", "forecast:2", "agenda", "calendar", "powerprice:2" },
             "desk" => new[] { "clock", "weather", "forecast:2", "calendar", "worldclock", "cpu", "memory", "timer", "activity", "media:2" },
@@ -274,20 +275,23 @@ public static class ModuleCatalog
             },
             _ => new[] { "clock:2", "cpu", "gpu", "memory", "network", "disks", "processes", "activity", "media" },
         };
-        return types.Select(t =>
-        {
-            bool large = t.EndsWith('!');
-            var parts = t.TrimEnd('!').Split(':');
-            var m = New(parts[0]); // with a new tile's own defaults (deck buttons, shuffled photos…)
-            m.Span = parts.Length > 1 ? int.Parse(parts[1]) : 1;
-            if (large)
-                m.SetOpt("Large", "true");
-            // Under the photo the clock is a narrow tile next to a Weather tile: it doesn't repeat the weather.
-            if (id == "photoframe" && m.Type == "clock")
-                m.SetOpt("HideWeather", "true");
-            return m;
-        }).ToList();
+        return Tiles(types);
     }
+
+    /// <summary>New tiles from a list written as "type", "type:2" (width), "type!" (Large), "type?Option" (a switch turned on).</summary>
+    public static List<ModuleConfig> Tiles(IEnumerable<string> types) => types.Select(t =>
+    {
+        string[] switches = t.Split('?');
+        bool large = switches[0].EndsWith('!');
+        var parts = switches[0].TrimEnd('!').Split(':');
+        var m = New(parts[0]); // with a new tile's own defaults (deck buttons, shuffled photos…)
+        m.Span = parts.Length > 1 ? int.Parse(parts[1]) : 1;
+        if (large)
+            m.SetOpt("Large", "true");
+        foreach (var on in switches.Skip(1))
+            m.SetOpt(on, "true");
+        return m;
+    }).ToList();
 
     /// <summary>
     /// Replaces a page's layout with a preset but keeps each tile's own settings (city, buttons, sensors…).

@@ -450,6 +450,23 @@ Share Tech Mono, VT323, JetBrains Mono, Caveat; SIL Open Font License, see `src/
 glass, paper, wave, dot grid) is drawn by `src/Shoji/UI/BackdropArt.cs`, one file shared by the Windows and Linux
 apps, with a still layer behind the tiles and a 20 fps moving layer only while Animations is on.
 
+### Setups
+
+A setup is a theme together with pages made for it, applied in one go from **Settings → Appearance → Setups**:
+
+| Setup | Theme | Pages |
+|---|---|---|
+| Cockpit | Hypercar | *Drive*: FPS speedometer, CPU, GPU, temperatures, power, status lamps, ping · *Pit*: task manager, flight recorder, network, drives, memory, last session |
+| Mission control | Mission Control | *Flight*: clock, CPU, GPU, memory, power, network, status lamps · *Ops*: task manager, tasks & agents, flight recorder, temperatures, ping |
+| Zen desk | Sumi-e | *Desk*: clock, weather, calendar, hourly forecast, agenda, world clock · *Frame*: photo frame with time, weather and music · *Focus*: focus timer, CPU, memory, now playing |
+| Developer | Tokyo Night | *Code*: tasks & agents, flight recorder, GitHub, AI usage, CPU, memory · *System*: task manager, GPU, network, drives, temperatures |
+| Living room | Aurora | *Home*: clock, weather, photos, hourly forecast, agenda, calendar · *Music*: now playing and lyrics |
+
+Picking one replaces your pages and theme (and switches day / night themes off, so the setup's theme shows). Tiles of
+a kind you already had keep their own settings: city, deck buttons, tokens. The layout from before is saved in the
+data folder (`before-setup.json`); **Bring it back** on the same page restores it, also after trying several setups
+in a row.
+
 ## Gauge styles
 
 Many tiles can be drawn in more than one way. Each tile has a **Style** setting (Settings → Pages & tiles); "Theme

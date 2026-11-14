@@ -69,6 +69,7 @@
     <Compile Include="../Shoji/UI/TileLayout.cs" Link="Shared/TileLayout.cs" />
     <Compile Include="../Shoji/UI/BackdropArt.cs" Link="Shared/BackdropArt.cs" />
     <Compile Include="../Shoji/Core/LayoutShare.cs" Link="Shared/LayoutShare.cs" />
+    <Compile Include="../Shoji/Core/Setups.cs" Link="Shared/Setups.cs" />
     <Compile Include="../Shoji/Sensors/PhotoLibrary.cs" Link="Shared/PhotoLibrary.cs" />
     <Compile Include="../Shoji/UI/AlbumArt.cs" Link="Shared/AlbumArt.cs" />
   </ItemGroup>

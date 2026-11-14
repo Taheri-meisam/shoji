@@ -33,6 +33,15 @@ public static class Screenshot
 
         var dims = size.ToLowerInvariant().Split('x');
         double w = double.Parse(dims[0], CultureInfo.InvariantCulture), h = double.Parse(dims[1], CultureInfo.InvariantCulture);
+        // SHOJI_SETUP=id | restore (test only): apply that setup (Settings → Appearance) to the saved settings first, or bring the layout from before back.
+        if (Environment.GetEnvironmentVariable("SHOJI_SETUP") is { Length: > 0 } setupId)
+            AppConfig.Edit(c =>
+            {
+                if (setupId == "restore")
+                    Setups.Restore(c);
+                else if (Setups.All.FirstOrDefault(x => x.Id == setupId) is { } setup)
+                    Setups.Apply(c, setup);
+            });
         var config = AppConfig.Load();
         if (theme != null)
             config.Theme = theme; // only for this picture; not saved
