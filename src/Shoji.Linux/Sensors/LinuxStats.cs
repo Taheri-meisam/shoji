@@ -23,7 +23,7 @@ internal sealed class LinuxStats
         var d = new Dictionary<string, long>(StringComparer.Ordinal);
         try
         {
-            foreach (var line in File.ReadLines("/proc/meminfo"))
+            foreach (var line in LinuxCli.ReadLines("/proc/meminfo"))
             {
                 int colon = line.IndexOf(':');
                 if (colon <= 0)
@@ -124,7 +124,7 @@ internal sealed class LinuxStats
     static Dictionary<string, (long Rx, long Tx)> ReadNetDev()
     {
         var d = new Dictionary<string, (long, long)>(StringComparer.Ordinal);
-        foreach (var line in File.ReadLines("/proc/net/dev").Skip(2))
+        foreach (var line in LinuxCli.ReadLines("/proc/net/dev").Skip(2))
         {
             int colon = line.IndexOf(':');
             if (colon <= 0)
@@ -143,7 +143,7 @@ internal sealed class LinuxStats
         long bestMetric = long.MaxValue;
         try
         {
-            foreach (var line in File.ReadLines("/proc/net/route").Skip(1))
+            foreach (var line in LinuxCli.ReadLines("/proc/net/route").Skip(1))
             {
                 var f = line.Split('\t', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 // Destination 0.0.0.0 with mask 0.0.0.0 is the default route.
@@ -217,7 +217,7 @@ internal sealed class LinuxStats
         var byDevice = new Dictionary<string, (string Mount, string Fs)>(StringComparer.Ordinal);
         try
         {
-            foreach (var line in File.ReadLines("/proc/mounts"))
+            foreach (var line in LinuxCli.ReadLines("/proc/mounts"))
             {
                 var f = line.Split(' ');
                 if (f.Length < 3)
@@ -314,7 +314,7 @@ internal sealed class LinuxStats
                 .Select(Path.GetFileName).OfType<string>().ToArray();
             var disks = _physicalDisks.ToHashSet(StringComparer.Ordinal);
             long read = 0, written = 0;
-            foreach (var line in File.ReadLines("/proc/diskstats"))
+            foreach (var line in LinuxCli.ReadLines("/proc/diskstats"))
             {
                 var f = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 // major minor name reads merged sectors_read ms writes merged sectors_written …
@@ -440,47 +440,60 @@ internal sealed class LinuxStats
 
         foreach (var dir in LinuxCli.Dirs("/proc", "*"))
         {
-            string leaf = Path.GetFileName(dir);
+            var leaf = dir.AsSpan(dir.LastIndexOf('/') + 1);
             if (leaf.Length == 0 || !char.IsAsciiDigit(leaf[0]) || !int.TryParse(leaf, out int pid) || pid == OwnPid)
                 continue;
             try
             {
-                string stat = File.ReadAllText(Path.Combine(dir, "stat"));
+                if (LinuxCli.ReadText(dir + "/stat") is not { } stat)
+                    continue; // exited meanwhile
                 // "pid (comm) state ppid …": comm may contain spaces and parentheses, so split after the last ')'.
                 int open = stat.IndexOf('('), close = stat.LastIndexOf(')');
-                if (open < 0 || close < open)
+                if (open < 0 || close < open || close + 2 >= stat.Length)
                     continue;
-                string comm = stat[(open + 1)..close];
-                var f = stat[(close + 2)..].Split(' ');
-                // Fields after the comm start at "state" (field 3): flags = 9, utime = 14, stime = 15.
-                if (f.Length < 13)
+                // Fields after the comm start at "state" (field 3): flags = 9, utime = 14, stime = 15, rss (pages) = 24.
+                // Walked in place: this runs for every process, every second or two.
+                long flags = 0, ticks = 0, rssPages = 0;
+                int field = 0;
+                var rest = stat.AsSpan(close + 2);
+                while (rest.Length > 0 && field <= 21)
+                {
+                    int space = rest.IndexOf(' ');
+                    var value = space < 0 ? rest : rest[..space];
+                    if (field == 6)
+                        long.TryParse(value, out flags);
+                    else if (field is 11 or 12 && long.TryParse(value, out long t))
+                        ticks += t;
+                    else if (field == 21)
+                        long.TryParse(value, out rssPages);
+                    field++;
+                    rest = space < 0 ? default : rest[(space + 1)..];
+                }
+                if (field < 13)
                     continue;
-                bool kernelThread = (LinuxCli.ParseLong(f[6]) & 0x00200000) != 0; // PF_KTHREAD
-                long ticks = LinuxCli.ParseLong(f[11]) + LinuxCli.ParseLong(f[12]);
+                bool kernelThread = (flags & 0x00200000) != 0; // PF_KTHREAD
                 seen.Add(pid);
 
                 double cpu = 0;
-                if (elapsed > 0 && _cpuTicks.TryGetValue(pid, out var last))
+                bool known = _cpuTicks.TryGetValue(pid, out var last);
+                if (elapsed > 0 && known)
                     cpu = (ticks - last) / TicksPerSecond / elapsed / threads * 100;
+                // A process that used no processor time since the last look made no reads or writes either.
+                bool idle = known && ticks == last;
                 _cpuTicks[pid] = ticks;
 
-                double rssMb = 0;
-                if (!kernelThread && LinuxCli.ReadText(Path.Combine(dir, "statm")) is { } statm)
-                {
-                    var parts = statm.Split(' ');
-                    if (parts.Length > 1)
-                        rssMb = LinuxCli.ParseLong(parts[1]) * PageSize / 1048576d;
-                }
+                double rssMb = kernelThread ? 0 : rssPages * PageSize / 1048576d;
 
                 double disk = 0;
-                if (table && !kernelThread && ReadIo(dir, pid) is long io)
+                if (table && !kernelThread && !(idle && _ioBytes.ContainsKey(pid)) && ReadIo(dir, pid) is long io)
                 {
                     if (elapsed > 0 && _ioBytes.TryGetValue(pid, out var lastIo))
                         disk = Math.Max(0, io - lastIo) / elapsed;
                     _ioBytes[pid] = io;
                 }
 
-                string name = kernelThread ? KernelName(comm) : ProcessName(dir, pid, comm);
+                var comm = stat.AsSpan(open + 1, close - open - 1);
+                string name = ProcessName(dir, pid, comm, kernelThread);
                 groups.Add(name, cpu, rssMb, disk);
             }
             catch
@@ -513,7 +526,12 @@ internal sealed class LinuxStats
         try
         {
             long read = 0, write = 0;
-            foreach (var line in File.ReadLines(Path.Combine(dir, "io")))
+            if (LinuxCli.ReadText(dir + "/io") is not { } io)
+            {
+                _noIo.Add(pid);
+                return null;
+            }
+            foreach (var line in io.Split('\n'))
             {
                 if (line.StartsWith("read_bytes:", StringComparison.Ordinal))
                     read = LinuxCli.ParseLong(line[11..].Trim());
@@ -543,14 +561,20 @@ internal sealed class LinuxStats
     /// program file name from the command line is used then), and browser / Electron helpers ("Isolated Web Co",
     /// "Web Content", "RDD Process", chrome --type=renderer) count as the program that started them.
     /// </summary>
-    string ProcessName(string dir, int pid, string comm)
+    string ProcessName(string dir, int pid, ReadOnlySpan<char> commNow, bool kernelThread)
     {
-        if (_names.TryGetValue(pid, out var cached) && cached.Comm == comm)
+        if (_names.TryGetValue(pid, out var cached) && commNow.SequenceEqual(cached.Comm))
             return cached.Name;
+        string comm = commNow.ToString();
+        if (kernelThread)
+        {
+            _names[pid] = (comm, KernelName(comm));
+            return _names[pid].Name;
+        }
         string name = comm;
         try
         {
-            var cmd = File.ReadAllText(Path.Combine(dir, "cmdline"));
+            var cmd = LinuxCli.ReadText(dir + "/cmdline") ?? "";
             int nul = cmd.IndexOf('\0');
             string argv0 = nul >= 0 ? cmd[..nul] : cmd;
             // Firefox rewrites its command line with spaces between the arguments, so the helper flag can follow either.

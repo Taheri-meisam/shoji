@@ -426,25 +426,47 @@ static class ClaudeLogs
     }
 
     /// <summary>A session only counts while a Claude Code is open; a closed one isn't waiting for anybody.</summary>
+    static bool _running;
+    static long _runningAt = -100_000;
+
     static bool ClaudeRunning()
     {
         if (OperatingSystem.IsWindows())
             return true; // it runs inside node / a terminal there: can't tell cheaply, so trust the log's age
+        // Looking through every process isn't free either: the answer holds for a few seconds.
+        if (Environment.TickCount64 - _runningAt < 5000)
+            return _running;
         try
         {
             var found = Process.GetProcessesByName("claude");
             foreach (var p in found)
                 p.Dispose();
-            return found.Length > 0;
+            _running = found.Length > 0;
         }
         catch
         {
-            return true;
+            _running = true;
         }
+        _runningAt = Environment.TickCount64;
+        return _running;
     }
 
-    static TaskItem? Parse(string file, DateTime written, DateTime nowUtc)
+    sealed record Parsed(long Length, DateTime Written, string? Title, string? Cwd, string? State, DateTime? When);
+
+    static readonly Dictionary<string, Parsed> Seen = new();
+
+    /// <summary>
+    /// What the end of a session log says. Reading it means a few hundred kilobytes of text, and this runs every
+    /// second, so the answer is kept until the file changes.
+    /// </summary>
+    static Parsed ParseLog(string file, DateTime written)
     {
+        long length = new FileInfo(file).Length;
+        lock (Seen)
+        {
+            if (Seen.TryGetValue(file, out var known) && known.Length == length && known.Written == written)
+                return known;
+        }
         string tail = Tail(file, 400_000);
         string? title = null, cwd = null, state = null;
         DateTime? when = null;
@@ -486,6 +508,19 @@ static class ClaudeLogs
                 // a cut or foreign line
             }
         }
+        var parsed = new Parsed(length, written, title, cwd, state, when);
+        lock (Seen)
+        {
+            if (Seen.Count > 200)
+                Seen.Clear();
+            Seen[file] = parsed;
+        }
+        return parsed;
+    }
+
+    static TaskItem? Parse(string file, DateTime written, DateTime nowUtc)
+    {
+        var (_, _, title, cwd, state, when) = ParseLog(file, written);
         if (state == null)
             return null;
         // Still "running" but silent for minutes: a long tool, or a question the log doesn't show. Too vague to list.

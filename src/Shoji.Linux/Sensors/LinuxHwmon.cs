@@ -82,12 +82,36 @@ internal sealed class LinuxHwmon
         return count == 1 && kind == "temp" ? noun : $"{noun} {index}";
     }
 
+    readonly Dictionary<string, (int Fails, DateTime RetryAt)> _dead = new();
+
+    /// <summary>
+    /// One input's value. An input that isn't wired up fails on every read, and each failure is an exception: after
+    /// five in a row it is only tried again once a minute.
+    /// </summary>
+    long? Read(string path)
+    {
+        lock (_dead)
+        {
+            if (_dead.TryGetValue(path, out var d) && d.Fails >= 5 && DateTime.UtcNow < d.RetryAt)
+                return null;
+        }
+        long? value = File.Exists(path) ? LinuxCli.ReadLong(path) : null;
+        lock (_dead)
+        {
+            if (value != null)
+                _dead.Remove(path);
+            else
+                _dead[path] = ((_dead.TryGetValue(path, out var d) ? d.Fails : 0) + 1, DateTime.UtcNow.AddMinutes(1));
+        }
+        return value;
+    }
+
     /// <summary>Every plausible temperature in °C (unused inputs read -128, 0 or fail).</summary>
     public List<SensorReading> ReadTemps()
     {
         var list = new List<SensorReading>();
         foreach (var i in _inputs.Where(i => i.Kind == "temp"))
-            if (LinuxCli.ReadLong(i.Path) is long milli && milli / 1000.0 is var c && c > 5 && c < 125)
+            if (Read(i.Path) is long milli && milli / 1000.0 is var c && c > 5 && c < 125)
                 list.Add(new SensorReading(i.Label, i.Group, c));
         return list;
     }
@@ -98,7 +122,7 @@ internal sealed class LinuxHwmon
         var list = new List<SensorReading>();
         foreach (var i in _inputs.Where(i => i.Kind == "fan"))
         {
-            if (LinuxCli.ReadLong(i.Path) is not long rpm || rpm < 0 || rpm >= 20_000)
+            if (Read(i.Path) is not long rpm || rpm < 0 || rpm >= 20_000)
                 continue;
             if (rpm > 0)
                 _spinningFans.Add(i.Path);
@@ -113,7 +137,7 @@ internal sealed class LinuxHwmon
     {
         foreach (var i in _inputs)
         {
-            if (LinuxCli.ReadLong(i.Path) is not long raw)
+            if (Read(i.Path) is not long raw)
                 continue;
             (string type, float value) = i.Kind switch
             {

@@ -72,7 +72,14 @@ static class Program
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<App>().UsePlatformDetect().WithShojiRendering()
             // No global (Unity-style) menu bar to export to: the dashboard has no menu, and the lookup only logs errors.
-            .With(new X11PlatformOptions { UseDBusMenu = false })
+            // SHOJI_RETAINED_FRAMEBUFFER=1 (experimental): keep the window's picture between frames instead of a new
+            // one for every frame. Meant for PCs that draw in software, where a fresh 8 MB buffer per frame also makes the
+            // runtime collect garbage every frame. Off unless asked for: not yet tried on a real screen.
+            .With(new X11PlatformOptions
+            {
+                UseDBusMenu = false,
+                UseRetainedFramebuffer = Environment.GetEnvironmentVariable("SHOJI_RETAINED_FRAMEBUFFER") == "1" ? true : null,
+            })
             .LogToTrace();
 
     /// <summary>

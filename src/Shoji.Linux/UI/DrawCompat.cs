@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
@@ -242,6 +243,12 @@ public static class FrameClock
     /// <summary>Nobody is looking (the session is idle or the window is minimized): no frames until it's cleared.</summary>
     public static bool Paused { get; set; }
 
+    /// <summary>Who is moving right now, "Type.Method ×n" (for SHOJI_BENCH).</summary>
+    public static string Who => string.Join(", ", Subscribers.GroupBy(f => f.Method.DeclaringType?.Name + "." + f.Method.Name).Select(g => $"{g.Key} ×{g.Count()}"));
+
+    /// <summary>Frames handed out so far (for SHOJI_BENCH).</summary>
+    public static int Ticks { get; private set; }
+
     public static void Subscribe(Action frame)
     {
         if (Subscribers.Contains(frame))
@@ -250,14 +257,18 @@ public static class FrameClock
         if (_timer != null)
             return;
         _timer = new Avalonia.Threading.DispatcherTimer(Avalonia.Threading.DispatcherPriority.Render) { Interval = TimeSpan.FromSeconds(1 / Fps) };
-        _timer.Tick += (_, _) =>
-        {
-            if (Paused)
-                return;
-            foreach (var f in Subscribers.ToArray())
-                f();
-        };
+        _timer.Tick += (_, _) => Tick();
         _timer.Start();
+    }
+
+    /// <summary>One frame for everything that moves. Public for SHOJI_BENCH: without a display the timer never fires, so the bench calls this itself.</summary>
+    public static void Tick()
+    {
+        if (Paused)
+            return;
+        Ticks++;
+        foreach (var f in Subscribers.ToArray())
+            f();
     }
 
     public static void Unsubscribe(Action frame)

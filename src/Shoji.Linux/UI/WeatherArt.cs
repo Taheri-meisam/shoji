@@ -83,10 +83,25 @@ public sealed class WeatherArt : DrawnControl
             FrameClock.Unsubscribe(Frame);
     }
 
+    static int _frame;
+
+    /// <summary>
+    /// How many clock frames one picture of this sky lasts. Every redraw costs a whole frame on PCs that draw in
+    /// software, so only what really moves fast (rain, snow, lightning) is drawn at the full rate: the sun's rays
+    /// turn slowly enough for every second frame, and drifting clouds, fog and the moon for every third.
+    /// </summary>
+    int Pace => _sky switch
+    {
+        Sky.Sun or Sky.PartSun => 2,
+        Sky.Moon or Sky.PartMoon or Sky.Cloud or Sky.Overcast or Sky.Fog => 3,
+        _ => 1,
+    };
+
     static void Frame()
     {
+        _frame++;
         foreach (var art in Live)
-            if (art.IsEffectivelyVisible) // not the icons on hidden pages
+            if (_frame % art.Pace == 0 && art.IsEffectivelyVisible) // not the icons on hidden pages
                 art.InvalidateVisual();
     }
 

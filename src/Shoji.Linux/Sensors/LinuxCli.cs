@@ -74,11 +74,40 @@ internal static class LinuxCli
 
     // ---------------------------------------------------------------- files
 
+    [ThreadStatic] static byte[]? _readBuffer;
+
+    /// <summary>
+    /// A whole (small) file as text; null if it can't be read. Made for /proc and /sys, which are read hundreds of
+    /// times a second: one reused buffer per thread instead of the stream, reader and builder File.ReadAllText makes.
+    /// </summary>
     public static string? ReadText(string path)
     {
-        try { return File.ReadAllText(path); }
+        try
+        {
+            using var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var buffer = _readBuffer ??= new byte[16384];
+            int total = 0;
+            while (true)
+            {
+                int n = RandomAccess.Read(handle, buffer.AsSpan(total), total);
+                if (n <= 0)
+                    break;
+                total += n;
+                if (total == buffer.Length)
+                {
+                    Array.Resize(ref buffer, buffer.Length * 2);
+                    if (buffer.Length <= 1 << 20)
+                        _readBuffer = buffer;
+                }
+            }
+            return System.Text.Encoding.UTF8.GetString(buffer, 0, total);
+        }
         catch { return null; }
     }
+
+    /// <summary>The lines of a (small) file, read with <see cref="ReadText"/>; none if it can't be read.</summary>
+    public static string[] ReadLines(string path) =>
+        ReadText(path)?.Split('\n', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
 
     /// <summary>First line of a sysfs attribute, trimmed; null if missing, unreadable or empty.</summary>
     public static string? ReadLine(string path)

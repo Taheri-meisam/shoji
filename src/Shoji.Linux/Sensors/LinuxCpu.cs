@@ -114,7 +114,7 @@ internal sealed class LinuxCpu
         var idles = new List<ulong>();
         try
         {
-            foreach (var line in File.ReadLines("/proc/stat"))
+            foreach (var line in LinuxCli.ReadLines("/proc/stat"))
             {
                 if (!line.StartsWith("cpu", StringComparison.Ordinal))
                     break; // the cpu lines come first

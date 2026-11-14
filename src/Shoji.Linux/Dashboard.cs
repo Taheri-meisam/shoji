@@ -965,8 +965,11 @@ public sealed class Dashboard : Window, IDashboardHost
 
     /// <summary>The motion stops while nobody can see it: minimized, idle a long time, black at night, or the PC locked.</summary>
     void UpdatePause() =>
-        UI.FrameClock.Paused = WindowState == WindowState.Minimized || (_last?.IdleSeconds ?? 0) > IdlePauseSeconds
-                               || _nightBlack || LinuxScreenLock.Active;
+        UI.FrameClock.Paused = !BenchAwake && (WindowState == WindowState.Minimized || (_last?.IdleSeconds ?? 0) > IdlePauseSeconds
+                                               || _nightBlack || LinuxScreenLock.Active);
+
+    /// <summary>SHOJI_BENCH_AWAKE=1 (test only): the motion keeps running whatever the idle time says, so its cost can be measured.</summary>
+    static readonly bool BenchAwake = Environment.GetEnvironmentVariable("SHOJI_BENCH_AWAKE") == "1";
 
     /// <summary>
     /// Dims (or blacks out) the dashboard during the night hours with a sheet above everything. A tap wakes it for
