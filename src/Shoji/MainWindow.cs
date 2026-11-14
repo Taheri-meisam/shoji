@@ -537,7 +537,7 @@ public sealed class MainWindow : Window, IDashboardHost
             return 0;
         // On a single column every tile is edge to edge: there only a tile set to "Full" width was meant as the showpiece.
         var config = page.Modules[only].Config;
-        return page.Columns > 1 || config.Span >= 9 ? TileLayout.ShowpieceWeight(config.Type.ToLowerInvariant()) : 0;
+        return page.Columns > 1 || config.Span >= 9 ? TileLayout.ShowpieceWeight(config.Type.ToLowerInvariant(), config.OptBool("Large")) : 0;
     }
 
     /// <summary>Puts a screenful's tiles in its grid at the planned column count and scale.</summary>

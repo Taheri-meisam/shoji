@@ -426,5 +426,88 @@ public static class Themes
             Background = "#000000", Tile = "#000000", TileBorder = "#1E242E",
             Dim = "#7C8596", Track = "#1A1F28", GraphFill = 60,
         },
+        new ThemeDef
+        {
+            Id = "daylight", Name = "Daylight", Description = "Clean and light for a bright room: white tiles, clear blue, soft shadows",
+            Background = "#EEF1F6", Background2 = "#E3E8F0", Tile = "#FFFFFF", TileBorder = "#D5DCE8",
+            Accent = "#1F63D6", Accent2 = "#8A3FC4", Text = "#18202E", Dim = "#566076", Track = "#E1E6EF",
+            Warn = "#9A5B00", Crit = "#C42B2B", Good = "#1F7A45",
+            Font = Barlow, DisplayFont = Barlow, TitleFont = Barlow, Mono = JetMono,
+            NumberWeight = FontWeights.SemiBold, UpperTitles = false, Radius = 14, SoftShadow = true, GraphFill = 45,
+            Styles = S("cpu=arc", "gpu=arc", "memory=rings", "power=arc", "overview=rings"),
+        },
+        new ThemeDef
+        {
+            Id = "contrast", Name = "High Contrast", Description = "Readable from across the room: black, white and yellow, bold numbers, thick outlines",
+            Background = "#000000", Tile = "#000000", TileBorder = "#FFFFFF", BorderThickness = 2,
+            Accent = "#FFE600", Accent2 = "#3DE0FF", Text = "#FFFFFF", Dim = "#D6D6D6", Track = "#3D3D3D",
+            Warn = "#FFB300", Crit = "#FF6B6B", Good = "#5CFF8A",
+            Font = Barlow, DisplayFont = Barlow, TitleFont = Barlow, Mono = JetMono,
+            NumberWeight = FontWeights.Bold, Radius = 6, GraphFill = 70,
+            Styles = S("cpu=arc", "gpu=arc", "memory=arc", "power=arc"),
+        },
+        new ThemeDef
+        {
+            Id = "ember", Name = "Ember", Description = "A fire burning low: warm charcoal, glowing orange and gold",
+            Background = "#110B09", Background2 = "#20120C", Tile = "#D91D1512", TileBorder = "#3D281D",
+            Accent = "#FF8A4C", Accent2 = "#FFCB6B", Text = "#F7ECE4", Dim = "#B09A8C", Track = "#33231B",
+            Warn = "#FFD34D", Crit = "#FF4F5E", Good = "#9BD67A",
+            Font = Barlow, DisplayFont = Barlow, TitleFont = Barlow, Mono = TechMono,
+            NumberWeight = FontWeights.Light, UpperTitles = false, Radius = 18, Backdrop = BackdropStyle.Glow,
+            GraphGlow = true, GraphFill = 65,
+            Styles = S("cpu=arc", "gpu=arc", "memory=rings", "power=arc", "overview=rings"),
+        },
+        new ThemeDef
+        {
+            Id = "solarized", Group = "Code", Name = "Solarized", Description = "The classic dark teal editor palette: blue, cyan and warm accents",
+            Background = "#00212B", Background2 = "#002B36", Tile = "#073642", TileBorder = "#17505E",
+            Accent = "#4AA8E8", Accent2 = "#3FBDB1", Text = "#EEE8D5", Dim = "#93A1A1", Track = "#144552",
+            Warn = "#D9A400", Crit = "#F6807C", Good = "#A3B81A",
+            Font = Barlow, DisplayFont = JetMono, TitleFont = Barlow, Mono = JetMono,
+            NumberWeight = FontWeights.Normal, UpperTitles = false, Radius = 8, Backdrop = BackdropStyle.Dots, GraphFill = 55,
+            Styles = S("cpu=arc", "gpu=arc", "memory=rings", "network=scope"),
+        },
+        new ThemeDef
+        {
+            Id = "rosepine", Group = "Code", Name = "Rosé Pine", Description = "Soho vibes: muted rose, iris and foam on a dusky purple",
+            Background = "#14121F", Background2 = "#191724", Tile = "#E61F1D2E", TileBorder = "#2E2A45",
+            Accent = "#EBBCBA", Accent2 = "#C4A7E7", Text = "#E0DEF4", Dim = "#9A96B5", Track = "#2A2740",
+            Warn = "#F6C177", Crit = "#EB6F92", Good = "#9CCFD8",
+            Font = Barlow, DisplayFont = JetMono, TitleFont = Barlow, Mono = JetMono,
+            NumberWeight = FontWeights.Normal, UpperTitles = false, Radius = 14, Backdrop = BackdropStyle.Glow, GraphFill = 55,
+            Styles = S("cpu=arc", "gpu=arc", "memory=rings", "overview=rings"),
+        },
+        new ThemeDef
+        {
+            Id = "arcade", Group = "Retro", Name = "Arcade", Description = "Coin-op cabinet: pixel type, magenta and cyan on black, LED digits and scanlines",
+            Background = "#07040F", Background2 = "#0F0720", Tile = "#120A24", TileBorder = "#FF4FD8",
+            Accent = "#FF4FD8", Accent2 = "#35E8FF", Text = "#F6F1FF", Dim = "#A99BD0", Track = "#2A1B4A",
+            Warn = "#FFE14D", Crit = "#FF4D5E", Good = "#5CFF9D",
+            Font = TechMono, DisplayFont = Vt323, TitleFont = Vt323, Mono = TechMono,
+            NumberWeight = FontWeights.Normal, Radius = 0, Shape = TileShape.Chamfer, Meter = MeterStyle.Segmented,
+            Backdrop = BackdropStyle.Scanlines, Title = TitleStyle.Arrow, TextGlow = true, GraphGlow = true, GraphFill = 40,
+            Styles = S("cpu=segments", "gpu=segments", "fps=segments", "power=segments", "temps=segments", "memory=led", "network=scope", "ping=scope", "clock=segments", "processes=radar"),
+        },
+        new ThemeDef
+        {
+            Id = "tourer", Group = "Sci-fi & speed", Name = "Grand Tourer", Description = "A classic dashboard at night: racing green, cream dials and brass, a speedometer for your FPS",
+            Background = "#07110C", Background2 = "#0C1C14", Tile = "#E60F2018", TileBorder = "#29442F",
+            Accent = "#D9B45A", Accent2 = "#E9E2C8", Text = "#F1EDDD", Dim = "#96A692", Track = "#1E3326",
+            Warn = "#FFB84D", Crit = "#FF5A4F", Good = "#7FD69A",
+            Font = Barlow, DisplayFont = BarlowCondensed, TitleFont = BarlowCondensed, Mono = TechMono,
+            NumberWeight = FontWeights.SemiBold, Radius = 18, Shape = TileShape.Blade, Backdrop = BackdropStyle.Carbon,
+            ItalicNumbers = true, GraphFill = 50,
+            Styles = S("cpu=arc", "gpu=arc", "fps=speedometer", "power=speedometer", "temps=tubes", "memory=arc", "battery=arc", "overview=rings"),
+        },
+        new ThemeDef
+        {
+            Id = "eink", Name = "E-ink", Description = "Like an e-reader: grey paper, black ink, hairlines, no colour to distract",
+            Background = "#E6E4DC", Tile = "#F1EFE8", TileBorder = "#A9A69B",
+            Accent = "#1B1B1B", Accent2 = "#6E6C64", Text = "#141414", Dim = "#55534C", Track = "#D5D2C7",
+            Warn = "#7A4A00", Crit = "#A1201A", Good = "#2C5F3A",
+            Font = Barlow, DisplayFont = Barlow, TitleFont = BarlowCondensed, Mono = JetMono,
+            NumberWeight = FontWeights.Normal, Radius = 4, Meter = MeterStyle.Line, ThinGauges = true, GraphFill = 30,
+            Styles = S("cpu=arc", "gpu=arc", "memory=arc", "power=arc"),
+        },
     };
 }

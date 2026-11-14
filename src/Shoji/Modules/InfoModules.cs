@@ -130,7 +130,27 @@ public sealed class ClockModule : Module
             bottom.Children.Add(up);
             foreach (FrameworkElement e in bottom.Children)
                 e.HorizontalAlignment = HorizontalAlignment.Center;
-            View = MakeTile(Bottom(new Viewbox { Child = timeRow, Stretch = Stretch.Uniform }, bottom));
+            // The lines underneath never take more than two fifths of the tile: on a short tile they shrink together,
+            // so the time is still the big thing (it used to end up smaller than the date there).
+            var under = new Viewbox { Child = bottom, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly };
+            var grid = new Grid();
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            Grid.SetRow(under, 1);
+            grid.Children.Add(new Viewbox { Child = timeRow, Stretch = Stretch.Uniform });
+            grid.Children.Add(under);
+            void Share()
+            {
+                double natural = bottom.ActualHeight, room = grid.ActualHeight;
+                if (natural <= 0 || room <= 0)
+                    return;
+                double height = Math.Round(Math.Min(natural, room * 0.4));
+                if (!grid.RowDefinitions[1].Height.IsAbsolute || Math.Abs(grid.RowDefinitions[1].Height.Value - height) >= 1)
+                    grid.RowDefinitions[1].Height = new GridLength(height, GridUnitType.Pixel);
+            }
+            grid.SizeChanged += (_, _) => Share();
+            bottom.SizeChanged += (_, _) => Share();
+            View = MakeTile(grid);
             return;
         }
 

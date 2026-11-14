@@ -463,6 +463,7 @@ public sealed class CalendarModule : Module
         _agenda = agenda;
         _month = W.Text("", Theme.Small, Theme.Dim);
         View = MakeTile(_grid, _month);
+        _grid.SizeChanged += (_, _) => FitText();
     }
 
     public override void Update(Snapshot s)
@@ -519,7 +520,37 @@ public sealed class CalendarModule : Module
                 _grid.Children.Add(WithDots(Cell(d.ToString(), date < today ? Theme.Dim : DayColor(date.DayOfWeek, jp) ?? Theme.Text, Theme.Small + 1), calendars, null));
             }
         }
+        FitText();
     }
+
+    /// <summary>
+    /// On a short tile the rows are lower than the text: the numbers shrink to their rows instead of printing over
+    /// each other. With enough room nothing changes.
+    /// </summary>
+    void FitText()
+    {
+        int rows = (int)Math.Ceiling(_grid.Children.Count / 7.0);
+        double height = _grid.ActualHeight;
+        if (rows == 0 || height <= 0)
+            return;
+        double most = (height / rows - 4) / 1.4;
+        foreach (UIElement child in _grid.Children)
+            if (Number(child) is { } t)
+            {
+                t.Tag ??= t.FontSize; // the size it was made with
+                double size = Math.Max(6, Math.Min((double)t.Tag, most));
+                if (Math.Abs(t.FontSize - size) > 0.05)
+                    t.FontSize = size;
+            }
+    }
+
+    static TextBlock? Number(object? cell) => cell switch
+    {
+        TextBlock t => t,
+        Border b => Number(b.Child),
+        Panel p when p.Children.Count > 0 => Number(p.Children[0]),
+        _ => null,
+    };
 
     /// <summary>The day number with up to three small dots under it, one per calendar with something on that day.</summary>
     UIElement WithDots(TextBlock number, List<int>? calendars, Brush? color)

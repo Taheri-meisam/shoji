@@ -148,12 +148,14 @@ public abstract class Gauge : DrawnControl
     protected enum Align { Left, Center, Right }
 
     protected Size Text(DrawingContext dc, string s, double x, double y, double size, IBrush brush, FontFamily font,
-                        Align align = Align.Center, FontWeight? weight = null, bool slant = false)
+                        Align align = Align.Center, FontWeight? weight = null, bool slant = false, double maxWidth = 0)
     {
         if (size < 4 || string.IsNullOrEmpty(s))
             return default;
         var ft = new FormattedText(s, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
             new Typeface(font, FontStyle.Normal, weight ?? FontWeight.Normal, FontStretch.Normal), size, brush);
+        if (maxWidth > 0 && ft.Width > maxWidth)
+            ft.SetFontSize(Math.Max(4, size * maxWidth / ft.Width)); // a wide typeface: shrink to fit rather than spill over
         double left = align switch { Align.Left => x, Align.Right => x - ft.Width, _ => x - ft.Width / 2 };
         double top = y - ft.Height / 2;
         if (slant)
@@ -936,7 +938,6 @@ public sealed class Annunciator : Gauge
         bool warn = _lamps.Any(l => l.State == 2), caution = _lamps.Any(l => l.State == 1);
         bool blinkOn = !Blinking || _blinkOn;
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, w, h)); // the whole panel takes the acknowledge tap
-        var dark = Alpha(Brushes.Black, 0x80);
         var off = ((ISolidColorBrush)UI.Theme.Background).Color.R > 0x90 ? Alpha(Brushes.Black, 0x10) : Alpha(Brushes.White, 0x08);
 
         double bh = Math.Max(22, Math.Min(36, h * 0.16)), bw = (w - 10) / 2;
@@ -979,16 +980,20 @@ public sealed class Annunciator : Gauge
                 dc.DrawRectangle(off, MakePen(P.Track, 1), r, 2, 2);
             }
             Text(dc, label, r.X + r.Width / 2, r.Y + r.Height / 2, font,
-                 state > 0 ? dark : P.Dim, P.Display, weight: FontWeight.SemiBold);
+                 state > 0 ? Ink(col) : P.Dim, P.Display, weight: FontWeight.SemiBold, maxWidth: r.Width - 8);
         }
     }
+
+    /// <summary>The text colour on a lit lamp: dark on a bright lamp, light on a dark one (E-ink's black "information" lamp).</summary>
+    IBrush Ink(IBrush lamp) =>
+        lamp is ISolidColorBrush s && UI.Theme.Luminance(s.Color) < 0.25 ? Alpha(Brushes.White, 0xE6) : Alpha(Brushes.Black, 0x90);
 
     void Master(DrawingContext dc, Rect r, string label, bool lit, IBrush col, IBrush off)
     {
         if (lit && P.Glow) dc.DrawRectangle(Alpha(col, 0x40), null, new Rect(r.X - 3, r.Y - 3, r.Width + 6, r.Height + 6), 5, 5);
         dc.DrawRectangle(lit ? col : off, MakePen(lit ? col : P.Track, 1), r, 3, 3);
         Text(dc, label, r.X + r.Width / 2, r.Y + r.Height / 2, Math.Max(9, Math.Min(r.Height * 0.44, r.Width / (Wide(label) * 0.68))),
-             lit ? Alpha(Brushes.Black, 0x90) : P.Dim, P.Display, weight: FontWeight.SemiBold);
+             lit ? Ink(col) : P.Dim, P.Display, weight: FontWeight.SemiBold, maxWidth: r.Width - 8);
     }
 }
 

@@ -65,7 +65,7 @@ Swipe between pages, or let scenes switch them for you (a game starts → Gaming
 
 ### Themes
 
-16 of the 28 themes, all showing the same Main page:
+20 of the 36 themes, all showing the same Main page:
 
 <table>
 <tr>
@@ -99,6 +99,14 @@ Swipe between pages, or let scenes switch them for you (a game starts → Gaming
 <tr>
 <td align="center"><img src="docs/screenshots/theme-sunset.png" alt="Lo-fi Sunset theme"><br><b>Lo-fi Sunset</b></td>
 <td align="center"><img src="docs/screenshots/theme-dracula.png" alt="Dracula theme"><br><b>Dracula</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-daylight.png" alt="Daylight theme"><br><b>Daylight</b></td>
+<td align="center"><img src="docs/screenshots/theme-contrast.png" alt="High Contrast theme"><br><b>High Contrast</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/theme-arcade.png" alt="Arcade theme"><br><b>Arcade</b></td>
+<td align="center"><img src="docs/screenshots/theme-tourer.png" alt="Grand Tourer theme"><br><b>Grand Tourer</b></td>
 </tr>
 </table>
 
@@ -410,7 +418,7 @@ Tokens and calendar links are stored in `config.json` in your user profile; they
 ## Themes
 
 Pick one in **tray → Theme** or in **Settings → Appearance**, where they're grouped (Everyday, Sci-fi & speed,
-Japanese, Retro, Code) with a live preview of each. It switches instantly. 28 themes:
+Japanese, Retro, Code) with a live preview of each. It switches instantly. 36 themes:
 
 | Theme | Look | Default gauges |
 |-------|------|----------------|
@@ -442,6 +450,14 @@ Japanese, Retro, Code) with a live preview of each. It switches instantly. 28 th
 | **Gruvbox** | Retro groove: warm browns and mustard, monospace, `> cpu_` prompts | LED digits, oscilloscopes |
 | **Tokyo Night** | The editor theme: soft blue and violet after rain | Arc gauges, rings, oscilloscope |
 | **OLED Black** | Pure black with thin outlines, kindest to OLED panels | Classic |
+| **Daylight** | Light theme for a bright room: white tiles, clear blue, soft shadows | Arc gauges, rings |
+| **High Contrast** | Readable from across the room: black, white and yellow, bold numbers, thick white outlines | Arc gauges |
+| **Ember** | A fire burning low: warm charcoal, glowing orange and gold | Arc gauges, rings |
+| **Solarized** | The classic dark teal editor palette, JetBrains Mono numbers, dot-grid canvas | Arc gauges, rings, oscilloscope |
+| **Rosé Pine** | Muted rose, iris and foam on a dusky purple, JetBrains Mono numbers | Arc gauges, rings |
+| **Arcade** | Coin-op cabinet: pixel type (VT323), magenta and cyan on black, chamfered panels, scanlines | LED digits, oscilloscopes, radar, LED clock |
+| **Grand Tourer** | A classic dashboard at night: racing green, cream and brass over carbon weave, slanted numbers | Speedometers (FPS, power), arc gauges, coolant tubes |
+| **E-ink** | Light theme like an e-reader: grey paper, black ink, hairline gauges, no colour to distract | Thin arc gauges |
 
 Japanese themes also show the date in Japanese, weekday kanji in the calendar (Sunday red, Saturday blue)
 and the weather's kanji (晴 曇 雨 雪 雷) next to the animated weather picture. The themes use fonts bundled with the app (Michroma, Orbitron, Barlow,
@@ -461,6 +477,14 @@ A setup is a theme together with pages made for it, applied in one go from **Set
 | Zen desk | Sumi-e | *Desk*: clock, weather, calendar, hourly forecast, agenda, world clock · *Frame*: photo frame with time, weather and music · *Focus*: focus timer, CPU, memory, now playing |
 | Developer | Tokyo Night | *Code*: tasks & agents, flight recorder, GitHub, AI usage, CPU, memory · *System*: task manager, GPU, network, drives, temperatures |
 | Living room | Aurora | *Home*: clock, weather, photos, hourly forecast, agenda, calendar · *Music*: now playing and lyrics |
+| Grand tour | Grand Tourer | *Dash*: FPS and power speedometers, CPU, GPU, temperatures, status lamps · *Trip*: last session, flight recorder, network, ping, memory, drives |
+| Arcade | Arcade | *Play*: FPS, CPU, GPU, temperatures, power, last session · *Jukebox*: now playing, volume mixer, lyrics |
+| Streamer | Tokyo Neon | *Live*: control deck, Twitch chat, volume mixer, now playing, status lamps · *Health*: FPS, CPU, GPU, network, temperatures, flight recorder |
+| Server room | Terminal | *Watch*: websites, ping, network, status lamps, drive health, drives · *Load*: task manager, CPU, memory, temperatures, history |
+| Home office | Daylight | *Today*: clock, weather, focus timer, agenda, calendar, tasks & agents · *PC*: CPU, memory, network, battery, top processes, drives |
+| Smart home | Fjord | *House*: Home Assistant, clock, weather, electricity price, hourly forecast · *Family*: photos, calendar, agenda, world clock |
+| Bedside | OLED Black | *Night*: a big clock, weather, agenda · *Frame*: photo frame with time, weather and music |
+| Quiet paper | E-ink | *Day*: clock, weather, calendar, hourly forecast, agenda, world clock · *Read*: notifications, focus timer, now playing |
 
 Picking one replaces your pages and theme (and switches day / night themes off, so the setup's theme shows). Tiles of
 a kind you already had keep their own settings: city, deck buttons, tokens. The layout from before is saved in the
@@ -745,7 +769,7 @@ catalog, scenes, alerts, weather, websites, integrations, web server, themes, la
 
 `scripts/theme-regression.sh` renders every theme on seven test pages (`tests/regression/config`), plus Midnight and Sakura in portrait, with fixed demo
 data and a frozen clock, using the Linux edition's headless renderer, and compares each picture with
-`tests/regression/baselines/` (240 pictures, ~2 minutes). It writes a report with the differences highlighted and
+`tests/regression/baselines/` (304 pictures, ~2 minutes). It writes a report with the differences highlighted and
 exits 1 when something changed. After an intended visual change, run it with `--update`; `--themes matcha,tokyo`
 and `--pages 1,3` narrow it down. Needs gcc and python3 with Pillow. Baselines depend on the machine's fonts, so a
 new machine starts with `--update`.

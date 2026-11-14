@@ -62,6 +62,46 @@ public static class Setups
             new("Home", new[] { "clock:2", "weather", "photos", "forecast:2", "agenda", "calendar" }),
             new("Music", new[] { "media:9!", "lyrics:9" }),
         }),
+        new("tourer", "Grand tour", "tourer", "Racing green and brass for a night drive: speedometers for frame rate and power, then the trip computer", new SetupPage[]
+        {
+            new("Dash", new[] { "fps:2", "power", "cpu", "gpu", "temps", "status" }),
+            new("Trip", new[] { "recap", "incidents:2", "network", "ping", "memory", "disks" }),
+        }),
+        new("arcade", "Arcade", "arcade", "Pixel type and LED digits: frame rate, heat and the last game, with the music on its own page", new SetupPage[]
+        {
+            new("Play", new[] { "fps", "cpu", "gpu", "temps", "power", "recap" }),
+            new("Jukebox", new[] { "media:2", "mixer", "lyrics:9" }),
+        }),
+        new("stream", "Streamer", "tokyo", "Neon for going live: control deck, chat and the mixer in reach, the stream's health next door", new SetupPage[]
+        {
+            new("Live", new[] { "deck:2", "twitch", "mixer", "media", "status" }),
+            new("Health", new[] { "fps", "cpu", "gpu", "network", "temps", "incidents" }),
+        }),
+        new("server", "Server room", "terminal", "Green phosphor for a machine that works for a living: sites, drives, network, and who is using what", new SetupPage[]
+        {
+            new("Watch", new[] { "websites:2", "ping", "network", "status", "drivehealth", "disks" }),
+            new("Load", new[] { "taskmanager:2", "cpu", "memory", "temps", "history:2" }),
+        }),
+        new("office", "Home office", "daylight", "Light and clear for the working day: agenda, tasks and a focus timer, the PC on a second page", new SetupPage[]
+        {
+            new("Today", new[] { "clock:2", "weather", "timer", "agenda", "calendar", "tasks:2" }),
+            new("PC", new[] { "cpu", "memory", "network", "battery", "processes:2", "disks" }),
+        }),
+        new("smarthome", "Smart home", "fjord", "Calm arctic colours for the house: lights and thermostats, the weather, and what electricity costs right now", new SetupPage[]
+        {
+            new("House", new[] { "homeassistant:2", "clock", "weather", "powerprice:2", "forecast:2" }),
+            new("Family", new[] { "photos", "calendar", "agenda", "worldclock" }),
+        }),
+        new("bedside", "Bedside", "oled", "Pure black for the night: a big clock, tomorrow's weather and first appointment, and a photo frame", new SetupPage[]
+        {
+            new("Night", new[] { "clock:9!", "weather", "agenda" }),
+            new("Frame", new[] { "photos:9", "clock?HideWeather", "weather", "media" }),
+        }),
+        new("paper", "Quiet paper", "eink", "Like an e-reader on the desk: no colour, just the day, the weather and what's next", new SetupPage[]
+        {
+            new("Day", new[] { "clock:2", "weather", "calendar", "forecast:2", "agenda", "worldclock" }),
+            new("Read", new[] { "notifications:2", "timer", "media" }),
+        }),
     };
 
     static string BackupPath => Path.Combine(AppConfig.Folder, "before-setup.json");
