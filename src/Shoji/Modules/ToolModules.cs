@@ -17,8 +17,8 @@ namespace Shoji.Modules;
 /// <summary>The few things the tiles below need that differ between the Windows and Linux editions.</summary>
 static class ToolKit
 {
-    // Segoe Fluent Icons / MDL2: Completed, Sync, TouchPointer, ErrorBadge, CommandPrompt.
-    public const string Ok = "\uE930", Running = "\uE895", Waiting = "\uE7C9", Failed = "\uEA39", Terminal = "\uE756";
+    // Segoe Fluent Icons / MDL2: Completed, Sync, TouchPointer, ErrorBadge, CommandPrompt, Component.
+    public const string Ok = "\uE930", Running = "\uE895", Waiting = "\uE7C9", Failed = "\uEA39", Terminal = "\uE756", Chip = "\uE950";
     public static readonly FontFamily IconFont = new("Segoe Fluent Icons, Segoe MDL2 Assets");
     public static readonly FontWeight Semi = FontWeights.SemiBold;
     public static bool Square => Theme.Current.Shape is TileShape.Hud or TileShape.Chamfer;
@@ -26,6 +26,23 @@ static class ToolKit
     public static void OnUi(Action action) => Application.Current?.Dispatcher.BeginInvoke(action);
     public static TaskWatch NewWatch() => new TaskWatch();
     public const string EmptyTasks = "Nothing running. Coding agents and reported tasks show up here.";
+
+    /// <summary>A bar split into parts by their share (the last part is usually "the rest").</summary>
+    public static Grid SplitBar(double height, params (double Share, Paint Brush)[] parts)
+    {
+        var bar = new Grid { Height = height };
+        int column = 0;
+        foreach (var (share, brush) in parts)
+        {
+            if (share <= 0)
+                continue;
+            bar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(share, GridUnitType.Star) });
+            var part = new Border { Background = brush, Margin = new Thickness(0, 0, 1.5, 0), CornerRadius = new CornerRadius(Square ? 0 : height / 2) };
+            Grid.SetColumn(part, column++);
+            bar.Children.Add(part);
+        }
+        return bar;
+    }
 
     public static TextBlock Glyph(string glyph, double size, Paint color)
     {
@@ -140,12 +157,12 @@ public sealed class TasksModule : Module
 
     protected override void OnDispose() => _watch.NeedsYou -= OnNeedsYou;
 
-    void OnNeedsYou(TaskItem item) => ToolKit.OnUi(() => _host.Toast(item.State switch
+    void OnNeedsYou(TaskItem item)
     {
-        "waiting" => L.F("{0} is waiting for you", item.Title),
-        "failed" => L.F("{0} failed", item.Title),
-        _ => L.F("{0} finished", item.Title),
-    }));
+        // The dashboard's own card says it (and stays while something waits); the toast is for when that is off.
+        if (!TaskCard.Enabled)
+            ToolKit.OnUi(() => _host.Toast(TaskCard.Title(item)));
+    }
 
     public override void Update(Snapshot s)
     {
@@ -296,6 +313,109 @@ public sealed class PowerPriceModule : Module
             Grid.SetRow(bar, 1);
             cell.Children.Add(bar);
             _bars.Children.Add(cell);
+        }
+    }
+}
+
+/// <summary>
+/// Local models: what a model server on this PC (Ollama, LM Studio, llama.cpp…) has in memory, how much of it sits
+/// on the graphics card, when it will be unloaded, and what else is on disk (Sensors/LocalModels.cs).
+/// </summary>
+public sealed class LocalModelsModule : Module
+{
+    readonly LocalModelsService _service;
+    readonly StackPanel _rows = new();
+    readonly StackPanel _memory = new() { Margin = new Thickness(0, 0, 0, 9) };
+    readonly TextBlock _note;
+    readonly List<(LocalModel Model, TextBlock Time)> _times = new();
+    string _signature = "?";
+
+    public LocalModelsModule(ModuleConfig config) : base(config, "Local models")
+    {
+        string? server = config.Opt("Server");
+        _service = ServiceStore.Get(LocalModelsService.KeyFor(server), () => new LocalModelsService(server));
+        _note = W.Text("", Theme.Small, Theme.Dim);
+        View = MakeTile(Body(new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden }.FadeOverflow(), _memory), _note);
+    }
+
+    public override void Update(Snapshot s)
+    {
+        var state = _service.State;
+        if (state == null)
+            return;
+        double used = s.Gpu?.VramUsedMb ?? 0, total = s.Gpu?.VramTotalMb ?? 0;
+        // The list is rebuilt when the models change; the memory bar when it moved by a noticeable step.
+        string signature = (state.Reachable ? state.Server : "-") + "|" + string.Join("|", state.Models.Select(m => $"{m.Name}:{m.Loaded}:{m.GpuBytes}:{m.Context}"))
+            + "|" + Math.Round(used / 100) + "/" + Math.Round(total / 100) + "|" + Math.Round((s.Gpu?.LoadPercent ?? 0) / 5);
+        if (signature != _signature)
+        {
+            _signature = signature;
+            Rebuild(state, s);
+        }
+        var now = s.Time.ToUniversalTime();
+        foreach (var (model, time) in _times)
+            time.Text = LocalModelsText.Unloads(model.Unloads, now);
+    }
+
+    void Rebuild(LocalModels state, Snapshot s)
+    {
+        _rows.Children.Clear();
+        _memory.Children.Clear();
+        _times.Clear();
+        // Biggest first: the server lists them in whatever order they were last used.
+        var loaded = state.Loaded.OrderByDescending(m => m.Bytes).ThenBy(m => m.Name, StringComparer.Ordinal).ToList();
+        var onDisk = state.OnDisk.ToList();
+        _note.Text = !state.Reachable ? "" : loaded.Count > 0 ? L.F("{0} · {1} loaded", state.Server, loaded.Count) : state.Server;
+
+        if (!state.Reachable)
+        {
+            _rows.Children.Add(W.Empty(ToolKit.Chip, L.T("No model server is running. Start Ollama, or give another server's address in this tile's options.")));
+            return;
+        }
+        if (loaded.Count == 0)
+            _rows.Children.Add(W.Empty(ToolKit.Chip, onDisk.Count > 0 ? L.F("No model in memory. {0} on disk, ready to load.", onDisk.Count) : L.T("No model in memory.")));
+
+        foreach (var m in loaded)
+        {
+            // Partly in normal memory is the slow case: say so in the warning colour.
+            bool spilled = m.Bytes > 0 && m.GpuBytes < m.Bytes * 0.98;
+            var color = spilled ? Theme.Warn : Theme.Good;
+            var title = W.Text(LocalModelsText.Name(m.Name), Theme.Small + 1, Theme.Text, ToolKit.Semi);
+            var time = W.Text("", Theme.Small - 1, Theme.Dim);
+            _times.Add((m, time));
+            string where = m.Bytes <= 0 ? ""
+                : !spilled ? L.F("{0} on the graphics card", LocalModelsText.Size(m.Bytes))
+                : m.GpuBytes <= 0 ? L.F("{0} in normal memory (slow)", LocalModelsText.Size(m.Bytes))
+                : L.F("{0}, {1:0}% on the graphics card", LocalModelsText.Size(m.Bytes), 100.0 * m.GpuBytes / m.Bytes);
+            string text = string.Join(" · ", new[] { m.Detail, where, m.Context is int c ? L.F("context {0}", LocalModelsText.Context(c)) : null }.Where(p => !string.IsNullOrEmpty(p)));
+            var line = W.Text(text, Theme.Small, spilled ? Theme.Warn : Theme.Dim);
+            line.TextWrapping = TextWrapping.Wrap;
+            line.TextTrimming = TextTrimming.None;
+            _rows.Children.Add(ToolKit.Row(ToolKit.Glyph(ToolKit.Chip, Theme.Small + 7, color), W.Stack(ToolKit.Head(title, time), line), color, false));
+        }
+
+        if (onDisk.Count > 0)
+        {
+            const int show = 6;
+            string names = string.Join(", ", onDisk.Take(show).Select(m => LocalModelsText.Name(m.Name)));
+            var disk = W.Text(L.F("On disk: {0}", onDisk.Count > show ? names + " +" + (onDisk.Count - show) : names), Theme.Small, Theme.Dim);
+            disk.TextWrapping = TextWrapping.Wrap;
+            disk.TextTrimming = TextTrimming.None;
+            disk.Margin = new Thickness(2, 2, 0, 0);
+            _rows.Children.Add(disk);
+        }
+
+        // Graphics memory: these models, everything else on the card, and what is free.
+        if (s.Gpu is { VramUsedMb: double used, VramTotalMb: double total } gpu && total > 0)
+        {
+            double models = Math.Min(used, loaded.Sum(m => m.GpuBytes) / 1048576.0);
+            var caption = W.Text(L.T("Graphics memory"), Theme.Small, Theme.Dim);
+            string load = gpu.LoadPercent is double percent ? " · " + L.F("load {0:0}%", percent) : "";
+            var value = W.Text($"{used / 1024:0.0} / {total / 1024:0.0} GB{load}", Theme.Small, Theme.Text);
+            _memory.Children.Add(ToolKit.Head(caption, value));
+            var bar = ToolKit.SplitBar(6, (models, Theme.Good), (used - models, Theme.Dim), (Math.Max(0, total - used), Theme.Track));
+            bar.Margin = new Thickness(0, 4, 0, 0);
+            _memory.Children.Add(bar);
         }
     }
 }

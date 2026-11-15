@@ -54,6 +54,7 @@
     <Compile Include="../Shoji/Sensors/Calendars.cs" Link="Shared/Calendars.cs" />
     <Compile Include="../Shoji/Sensors/WebValue.cs" Link="Shared/WebValue.cs" />
     <Compile Include="../Shoji/Sensors/AiUsage.cs" Link="Shared/AiUsage.cs" />
+    <Compile Include="../Shoji/Sensors/LocalModels.cs" Link="Shared/LocalModels.cs" />
     <Compile Include="../Shoji/Sensors/DriveHealth.cs" Link="Shared/DriveHealth.cs" />
     <Compile Include="../Shoji/Sensors/PingMonitor.cs" Link="Shared/PingMonitor.cs" />
     <Compile Include="../Shoji/Sensors/PowerMeter.cs" Link="Shared/PowerMeter.cs" />

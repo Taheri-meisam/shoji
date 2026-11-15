@@ -153,7 +153,8 @@ Swipe between pages, or let scenes switch them for you (a game starts → Gaming
 | `photos`     | Photo frame: your pictures one by one with a soft crossfade (default the Pictures folder, or pick one with *Choose…* in its options); tap for the next. Full width with other tiles below, it takes most of the page |
 | `mirror`     | Live copy of your main screen (with the mouse pointer), another window (Discord, OBS stats, a minimap…) or an area of the screen |
 | `homeassistant` | Home Assistant: lights, switches, scenes, thermostats (current → target, with − / +), blinds, locks and media players (tap to switch; dimmable lights and numbers get − / + too), sensors and camera snapshots |
-| `aiusage`    | How much Claude Code and Codex were used on this PC: tokens in the last 5 and 24 hours, answers, per model, a bar per hour, and Codex's own limits with their reset times. Read from the logs they keep in your home folder; nothing is sent anywhere and no key is needed |
+| `aiusage`    | How much Claude Code and Codex were used on this PC: tokens in the last 5 and 24 hours, answers, per model, a bar per hour, and Codex's own limits with their reset times. Option *Show cost*: what the same work would cost at the providers' list prices, today and over 7 days, per tool and model (an estimate; a subscription is a flat fee). Read from the logs they keep in your home folder; nothing is sent anywhere and no key is needed |
+| `localmodels` | **Local models**: what Ollama, LM Studio or a llama.cpp server on this PC has in memory, how much of each model sits on the graphics card (and a warning when part of it spilled into normal memory), when it unloads, what else is on disk, and the graphics memory split into these models and everything else. Option *Server address* for another port or PC |
 | `github`     | Latest CI run and open pull requests per repository |
 | `twitch`     | Live Twitch chat of a channel (read-only, no login) |
 | `ticker`     | Stock prices (Yahoo Finance) and crypto (CoinGecko) with today's change |
@@ -312,12 +313,19 @@ Linux); heat uses the "hot" temperature from Settings → Alerts. With a **Last 
 "Stutters: 5 · mostly chrome". Nothing is saved to disk or sent anywhere.
 
 **Tasks & agents** (`tasks` tile). Start a build or a coding agent, switch away, and find out ten minutes later that
-it finished, or was waiting for an answer. The tile lists what is running, what has finished and what needs you, and
-says so in a toast on whatever page is showing.
+it finished, or was waiting for an answer. The tile lists what is running, what has finished and what needs you.
+
+When an agent waits for a permission or an answer, a **card** comes up at the top of the dashboard on whatever page is
+showing, with what it wants and how long it has waited. It leaves by itself once you answer in the terminal, or with a
+tap. Something that finished or failed shows for a minute. The card only tells you; approving stays in the terminal.
+Switch it off under Settings → Hardware sensors → *Tasks & agents* (the tile then says it in a toast instead).
 
 - Coding agents: Claude Code sessions are found by themselves ("Finished · your turn"). Settings → Hardware sensors →
   *Tasks & agents* → **Connect** adds hooks to Claude Code's `settings.json` (a copy is kept, other hooks stay), and
   the tile then also knows the moment a session needs a permission or an answer.
+- Codex: sessions are found from its logs (working, finished). **Connect** next to *Codex* adds hooks to
+  `~/.codex/hooks.json`, and the tile then also knows when Codex asks for approval. Codex wants new hooks allowed once:
+  type `/hooks` in Codex. Built from Codex's documentation and sample logs; please report what doesn't match.
 - Any command (Linux): `shoji run npm test` shows the command until it ends, then whether it worked and how long it
   took. It returns the command's own exit code, so it can stay in scripts.
 - Anything else: `shoji task running --title "Backup"`, later `shoji task done --title "Backup"` (or `failed`,
@@ -476,6 +484,7 @@ It doesn't touch the theme: pick a setup, then put any theme on it (or the other
 | Everyday | *Main*: clock, CPU, GPU, memory, power, network, status lamps · *Day*: clock, weather, calendar, hourly forecast, agenda, world clock · *Control*: control deck, volume mixer, focus timer, notifications · *Music*: now playing and lyrics |
 | Gaming | *Play*: FPS, CPU, GPU, temperatures, power, status lamps, ping · *Session*: last session, flight recorder, network, memory, drives, history · *Control*: control deck, volume mixer, now playing, notifications · *System*: task manager, top processes, fans, drive health, system |
 | Developer | *Code*: tasks & agents, flight recorder, GitHub, AI usage, CPU, memory · *System*: task manager, GPU, network, drives, temperatures · *Focus*: focus timer, agenda, calendar, now playing · *Control*: control deck, volume mixer, notifications, websites |
+| AI workstation | *Agents*: tasks & agents, local models, AI usage, GPU, CPU, memory, status lamps · *Models*: local models, GPU, temperatures, history, power, memory · *Usage*: AI usage with cost, flight recorder, GitHub, network, task manager · *Focus*: focus timer, agenda, calendar, now playing |
 | Streamer | *Live*: control deck, Twitch chat, volume mixer, now playing, status lamps · *Health*: FPS, CPU, GPU, network, temperatures, flight recorder · *Chat*: Twitch chat, notifications, clock · *Music*: now playing and lyrics |
 | Home office | *Today*: clock, weather, focus timer, agenda, calendar, tasks & agents · *PC*: CPU, memory, network, battery, top processes, drives · *Control*: control deck, volume mixer, notifications, now playing · *World*: world clock, weather, hourly forecast, markets |
 | Family home | *Home*: clock, weather, photos, hourly forecast, agenda, calendar · *House*: Home Assistant, clock, weather, electricity price, hourly forecast · *Frame*: photo frame with time, weather and music · *Music*: now playing and lyrics |
@@ -765,7 +774,7 @@ catalog, scenes, alerts, weather, websites, integrations, web server, themes, la
 
 `scripts/theme-regression.sh` renders every theme on seven test pages (`tests/regression/config`), plus Midnight and Sakura in portrait, with fixed demo
 data and a frozen clock, using the Linux edition's headless renderer, and compares each picture with
-`tests/regression/baselines/` (304 pictures, ~2 minutes). It writes a report with the differences highlighted and
+`tests/regression/baselines/` (342 pictures, ~2 minutes). It writes a report with the differences highlighted and
 exits 1 when something changed. After an intended visual change, run it with `--update`; `--themes matcha,tokyo`
 and `--pages 1,3` narrow it down. Needs gcc and python3 with Pillow. Baselines depend on the machine's fonts, so a
 new machine starts with `--update`.

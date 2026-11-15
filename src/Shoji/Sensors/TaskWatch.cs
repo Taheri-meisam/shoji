@@ -27,6 +27,8 @@ public sealed class TaskItem
     public int? ExitCode { get; set; }
     /// <summary>The wrapper process of a "shoji run" command, so a killed terminal doesn't leave it "running" forever.</summary>
     public int? Pid { get; set; }
+    /// <summary>An agent's session log. When it is written to after the agent started waiting, the question was answered.</summary>
+    public string? Transcript { get; set; }
 
     [System.Text.Json.Serialization.JsonIgnore]
     public bool NeedsYou => State is "waiting" or "done" or "failed";
@@ -204,10 +206,11 @@ public static class TaskCli
         if (string.IsNullOrEmpty(session))
             return;
         string id = agent + "-" + session;
-        string name = agent == "claude" ? "Claude Code" : char.ToUpperInvariant(agent[0]) + agent[1..];
+        string name = agent == "claude" ? "Claude Code" : agent.Length == 0 ? "Agent" : char.ToUpperInvariant(agent[0]) + agent[1..];
         string folder = ShortFolder(Text("cwd"));
         var item = TaskFiles.Read(id) ?? new TaskItem { Id = TaskFiles.SafeId(id) };
         item.Kind = "agent";
+        item.Transcript = Text("transcript_path") ?? item.Transcript;
         item.Title = Text("session_title") is { Length: > 0 } title ? $"{name} · {title}" : folder.Length > 0 ? $"{name} · {folder}" : name;
 
         string state;
@@ -234,6 +237,16 @@ public static class TaskCli
                     default: return;
                 }
                 detail = state == "waiting" ? OneLine(Text("message")) ?? item.Detail : item.Detail;
+                break;
+            case "PermissionRequest":
+                // Codex asks before a command it may not run by itself; what it wants is in "tool_input".
+                state = "waiting";
+                string? what = null;
+                if (root.TryGetProperty("tool_input", out var input) && input.ValueKind == JsonValueKind.Object)
+                    foreach (string field in new[] { "description", "command" })
+                        if (what == null && input.TryGetProperty(field, out var v) && v.ValueKind == JsonValueKind.String)
+                            what = OneLine(v.GetString());
+                detail = what ?? (Text("tool_name") is { Length: > 0 } tool ? $"{name} → {tool}" : item.Detail);
                 break;
             case "SessionEnd":
                 TaskFiles.Remove(id);
@@ -317,10 +330,18 @@ public sealed class TaskWatch : IDisposable
                     TaskFiles.Remove(item.Id);
                     items.Remove(item);
                 }
+                else if (item.State == "waiting" && item.Kind == "agent" && MovedOn(item))
+                {
+                    // Answered in the terminal: no hook says so, but the session's log is being written again.
+                    item.State = "running";
+                    item.Detail = null;
+                    item.Changed = now;
+                    TaskFiles.Write(item);
+                }
             }
             // Claude Code's logs every few seconds: sessions whose hooks aren't set up still show "finished, your turn".
             if (_tick++ % 5 == 0)
-                _logTasks = ClaudeLogs.Read(now, LogWindow);
+                _logTasks = ClaudeLogs.Read(now, LogWindow).Concat(CodexLogs.Read(now, LogWindow)).ToList();
             foreach (var fromLog in _logTasks)
                 if (!items.Any(i => i.Id == fromLog.Id))
                     items.Add(fromLog);
@@ -358,6 +379,18 @@ public sealed class TaskWatch : IDisposable
         State = State.Where(i => i.Id != item.Id).ToArray();
     }
 
+    static bool MovedOn(TaskItem item)
+    {
+        try
+        {
+            return item.Transcript is { Length: > 0 } log && File.Exists(log) && File.GetLastWriteTimeUtc(log) > item.Changed.AddSeconds(3);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     static bool Alive(int pid)
     {
         try
@@ -372,6 +405,54 @@ public sealed class TaskWatch : IDisposable
     }
 
     public void Dispose() => _timer.Dispose();
+}
+
+/// <summary>
+/// The card that comes up on the dashboard, whichever page is showing, when a task needs you: it stays while an
+/// agent waits for a permission or an answer, and for a minute after something finished or failed.
+/// </summary>
+public static class TaskCard
+{
+    /// <summary>The dashboard shows the card (Settings → Hardware → Tasks &amp; agents); the Tasks tile then leaves its toast out.</summary>
+    public static bool Enabled { get; set; }
+
+    static readonly TimeSpan ShowFinished = TimeSpan.FromSeconds(60);
+
+    public static string Key(TaskItem item) => $"{item.Id}|{item.State}|{item.Changed.Ticks}";
+
+    /// <summary>The one to show now: the first that waits for you, else what finished a moment ago. Null when nothing does.</summary>
+    public static TaskItem? Pick(IReadOnlyList<TaskItem> items, DateTime nowUtc, ICollection<string> dismissed)
+    {
+        TaskItem? finished = null;
+        foreach (var item in items)
+        {
+            if (dismissed.Contains(Key(item)))
+                continue;
+            if (item.State == "waiting")
+                return item;
+            if (finished == null && item.State is "done" or "failed" && nowUtc - item.Changed < ShowFinished && nowUtc >= item.Changed.AddSeconds(-5))
+                finished = item;
+        }
+        return finished;
+    }
+
+    public static string Title(TaskItem item) => item.State switch
+    {
+        "waiting" => L.F("{0} is waiting for you", item.Title),
+        "failed" => L.F("{0} failed", item.Title),
+        _ => L.F("{0} finished", item.Title),
+    };
+
+    /// <summary>"Claude needs your permission to use Bash · 0:42" while waiting; what it last said once finished.</summary>
+    public static string Detail(TaskItem item, DateTime nowUtc)
+    {
+        if (item.State != "waiting")
+            return item.State == "failed" && item.ExitCode is int code ? L.F("exit {0}", code)
+                : item.Kind == "agent" ? string.IsNullOrWhiteSpace(item.Detail) ? L.T("Your turn") : item.Detail! : item.Detail ?? "";
+        var waited = nowUtc - item.Changed;
+        string clock = waited.TotalSeconds < 0 ? "0:00" : waited.TotalHours >= 1 ? $"{(int)waited.TotalHours}:{waited.Minutes:00}:{waited.Seconds:00}" : $"{waited.Minutes}:{waited.Seconds:00}";
+        return string.IsNullOrWhiteSpace(item.Detail) ? clock : $"{item.Detail} · {clock}";
+    }
 }
 
 /// <summary>
@@ -405,17 +486,8 @@ static class ClaudeLogs
                     var written = File.GetLastWriteTimeUtc(file);
                     if (nowUtc - written > window)
                         continue;
-                    if (Parse(file, written, nowUtc) is { } item)
-                    {
-                        lock (Dismissed)
-                        {
-                            // Dismissed stays dismissed until the session moves on.
-                            if (Dismissed.Contains(item.Id) && item.State == "done")
-                                continue;
-                            Dismissed.Remove(item.Id);
-                        }
+                    if (Parse(file, written, nowUtc) is { } item && Keep(item))
                         list.Add(item);
-                    }
                 }
         }
         catch (Exception ex)
@@ -425,31 +497,49 @@ static class ClaudeLogs
         return list;
     }
 
-    /// <summary>A session only counts while a Claude Code is open; a closed one isn't waiting for anybody.</summary>
-    static bool _running;
-    static long _runningAt = -100_000;
+    /// <summary>False for a finished session that was tapped away; it comes back when the session moves on.</summary>
+    internal static bool Keep(TaskItem item)
+    {
+        lock (Dismissed)
+        {
+            if (Dismissed.Contains(item.Id) && item.State == "done")
+                return false;
+            Dismissed.Remove(item.Id);
+        }
+        return true;
+    }
 
-    static bool ClaudeRunning()
+    static readonly Dictionary<string, (bool Running, long At)> Programs = new();
+
+    /// <summary>A session only counts while its program is open; a closed one isn't waiting for anybody.</summary>
+    internal static bool Running(string program)
     {
         if (OperatingSystem.IsWindows())
             return true; // it runs inside node / a terminal there: can't tell cheaply, so trust the log's age
         // Looking through every process isn't free either: the answer holds for a few seconds.
-        if (Environment.TickCount64 - _runningAt < 5000)
-            return _running;
+        lock (Programs)
+        {
+            if (Programs.TryGetValue(program, out var known) && Environment.TickCount64 - known.At < 5000)
+                return known.Running;
+        }
+        bool running;
         try
         {
-            var found = Process.GetProcessesByName("claude");
+            var found = Process.GetProcessesByName(program);
             foreach (var p in found)
                 p.Dispose();
-            _running = found.Length > 0;
+            running = found.Length > 0;
         }
         catch
         {
-            _running = true;
+            running = true;
         }
-        _runningAt = Environment.TickCount64;
-        return _running;
+        lock (Programs)
+            Programs[program] = (running, Environment.TickCount64);
+        return running;
     }
+
+    static bool ClaudeRunning() => Running("claude");
 
     sealed record Parsed(long Length, DateTime Written, string? Title, string? Cwd, string? State, DateTime? When);
 
@@ -542,7 +632,7 @@ static class ClaudeLogs
         };
     }
 
-    static string Tail(string file, int bytes)
+    internal static string Tail(string file, int bytes)
     {
         using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         if (stream.Length > bytes)
@@ -553,51 +643,160 @@ static class ClaudeLogs
 }
 
 /// <summary>
-/// Settings' one-click set-up for Claude Code: adds (or removes) hooks in ~/.claude/settings.json that call
-/// "shoji hook claude", so the Tasks tile knows the moment a session needs a permission or has finished.
-/// Other hooks and settings in that file are left as they are; a copy is kept next to it the first time.
+/// The same for Codex without its hooks: the end of its session logs (~/.codex/sessions/…/rollout-*.jsonl) says
+/// whether a turn is still going ("task_started") or has ended ("task_complete", "turn_aborted"). A pending approval
+/// isn't written there: that needs the hooks, and with the hooks connected the logs aren't read at all.
 /// </summary>
-public static class ClaudeHooks
+static class CodexLogs
 {
-    static readonly string[] Events = { "UserPromptSubmit", "Notification", "Stop", "SessionEnd" };
-    const string Marker = " hook claude";
+    sealed record Parsed(long Length, DateTime Written, string? Cwd, string? State, DateTime? When, string? Said);
 
-    public static string SettingsPath => Path.Combine(
-        Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } dir ? dir : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
-        "settings.json");
+    static readonly Dictionary<string, Parsed> Seen = new();
 
-    /// <summary>Claude Code has been used on this PC (its folder exists).</summary>
-    public static bool Installed => Directory.Exists(Path.GetDirectoryName(SettingsPath)!);
-
-    public static bool Connected
+    public static IReadOnlyList<TaskItem> Read(DateTime nowUtc, TimeSpan window)
     {
-        get
+        var list = new List<TaskItem>();
+        try
         {
-            try { return File.Exists(SettingsPath) && File.ReadAllText(SettingsPath).Contains(Marker, StringComparison.Ordinal); }
-            catch { return false; }
+            string sessions = Path.Combine(CodexHooks.Folder, "sessions");
+            if (!Directory.Exists(sessions) || CodexHooks.Connected || !ClaudeLogs.Running("codex"))
+                return list;
+            // Sessions are filed by the day they started (local time): today's and yesterday's folders are enough.
+            foreach (var day in new[] { DateTime.Now, DateTime.Now.AddDays(-1) })
+            {
+                string folder = Path.Combine(sessions, day.ToString("yyyy"), day.ToString("MM"), day.ToString("dd"));
+                if (!Directory.Exists(folder))
+                    continue;
+                foreach (var file in Directory.EnumerateFiles(folder, "rollout-*.jsonl"))
+                {
+                    var written = File.GetLastWriteTimeUtc(file);
+                    if (nowUtc - written <= window && Parse(file, written, nowUtc) is { } item && ClaudeLogs.Keep(item))
+                        list.Add(item);
+                }
+            }
         }
+        catch (Exception ex)
+        {
+            Log.WriteThrottled("codexlogs", $"Codex's logs could not be read: {ex.Message}", TimeSpan.FromHours(6));
+        }
+        return list;
     }
 
-    static string Command
+    static Parsed ParseLog(string file, DateTime written)
     {
-        get
+        long length = new FileInfo(file).Length;
+        lock (Seen)
         {
-            string exe = Environment.ProcessPath ?? "shoji";
-            return (exe.Contains(' ') ? "\"" + exe + "\"" : exe) + Marker;
+            if (Seen.TryGetValue(file, out var known) && known.Length == length && known.Written == written)
+                return known;
         }
+        string? cwd = null, state = null, said = null;
+        DateTime? when = null;
+        var lines = ClaudeLogs.Tail(file, 400_000).Split('\n');
+        for (int i = lines.Length - 1; i >= 0 && (state == null || cwd == null); i--)
+        {
+            string line = lines[i];
+            bool turn = state == null && (line.Contains("\"task_started\"", StringComparison.Ordinal) || line.Contains("\"task_complete\"", StringComparison.Ordinal)
+                || line.Contains("\"turn_started\"", StringComparison.Ordinal) || line.Contains("\"turn_complete\"", StringComparison.Ordinal) || line.Contains("\"turn_aborted\"", StringComparison.Ordinal));
+            bool context = cwd == null && (line.Contains("\"turn_context\"", StringComparison.Ordinal) || line.Contains("\"session_meta\"", StringComparison.Ordinal));
+            if (!turn && !context)
+                continue;
+            try
+            {
+                using var doc = JsonDocument.Parse(line);
+                var e = doc.RootElement;
+                if (!e.TryGetProperty("payload", out var payload) || payload.ValueKind != JsonValueKind.Object)
+                    continue;
+                string? type = e.TryGetProperty("type", out var t) ? t.GetString() : null;
+                if (type is "turn_context" or "session_meta")
+                {
+                    cwd ??= payload.TryGetProperty("cwd", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
+                    continue;
+                }
+                if (type != "event_msg" || state != null || !payload.TryGetProperty("type", out var kind))
+                    continue;
+                switch (kind.GetString())
+                {
+                    case "task_started" or "turn_started": state = "running"; break;
+                    case "task_complete" or "turn_complete":
+                        state = "done";
+                        said = payload.TryGetProperty("last_agent_message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
+                        break;
+                    case "turn_aborted": state = "done"; break;
+                    default: continue;
+                }
+                if (e.TryGetProperty("timestamp", out var ts) && ts.TryGetDateTime(out var stamp))
+                    when = stamp.ToUniversalTime();
+            }
+            catch
+            {
+                // a cut or foreign line
+            }
+        }
+        var parsed = new Parsed(length, written, cwd, state, when, said);
+        lock (Seen)
+        {
+            if (Seen.Count > 200)
+                Seen.Clear();
+            Seen[file] = parsed;
+        }
+        return parsed;
     }
 
-    /// <summary>Adds the hooks (once). Returns null when it worked, else why not.</summary>
-    public static string? Connect() => Edit(add: true);
+    static TaskItem? Parse(string file, DateTime written, DateTime nowUtc)
+    {
+        var (_, _, cwd, state, when, said) = ParseLog(file, written);
+        if (state == null || state == "done" && nowUtc - (when ?? written) > TimeSpan.FromMinutes(30))
+            return null;
+        // "Working" but silent for a long while: a closed terminal, or an approval the log doesn't show. Too vague to list.
+        if (state == "running" && nowUtc - written > TimeSpan.FromMinutes(5))
+            return null;
+        string folder = TaskCli.ShortFolder(cwd);
+        if (said != null)
+        {
+            said = string.Join(' ', said.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            if (said.Length > 160)
+                said = said[..159] + "…";
+        }
+        // rollout-2026-11-15T10-22-31-<thread id>.jsonl
+        string name = Path.GetFileNameWithoutExtension(file);
+        return new TaskItem
+        {
+            Id = "codex-" + (name.Length > 36 ? name[^36..] : name),
+            Kind = "agent",
+            Title = folder.Length > 0 ? $"Codex · {folder}" : "Codex",
+            Detail = state == "done" ? said : null,
+            State = state,
+            Started = when ?? written,
+            Changed = when ?? written,
+        };
+    }
+}
 
-    /// <summary>Takes Shoji's hooks out again, leaving everything else.</summary>
-    public static string? Disconnect() => Edit(add: false);
+/// <summary>
+/// Adds or removes Shoji's hooks in an agent's settings file. Claude Code (settings.json) and Codex (hooks.json)
+/// share the shape: "hooks" → event → groups → { type: command, command }. Other hooks and settings in the file
+/// are left as they are; a copy is kept next to it the first time.
+/// </summary>
+static class AgentHooks
+{
+    public static bool Has(string path, string marker)
+    {
+        try { return File.Exists(path) && File.ReadAllText(path).Contains(marker, StringComparison.Ordinal); }
+        catch { return false; }
+    }
 
-    static string? Edit(bool add)
+    static string Command(string marker)
+    {
+        string exe = Environment.ProcessPath ?? "shoji";
+        return (exe.Contains(' ') ? "\"" + exe + "\"" : exe) + marker;
+    }
+
+    /// <param name="timeout">Seconds a hook may take, per event (a cold start of Shoji can take a moment).</param>
+    public static string? Edit(string path, string agent, string marker, (string Event, int Timeout)[] events, bool add)
     {
         try
         {
-            string path = SettingsPath;
             System.Text.Json.Nodes.JsonObject root;
             if (File.Exists(path))
             {
@@ -622,7 +821,7 @@ public static class ClaudeHooks
                     return null;
                 root["hooks"] = hooks = new System.Text.Json.Nodes.JsonObject();
             }
-            foreach (string name in Events)
+            foreach (var (name, timeout) in events)
             {
                 var groups = hooks[name] as System.Text.Json.Nodes.JsonArray;
                 // Out with ours first (also so a moved Shoji gets its new path), then back in when adding.
@@ -633,7 +832,7 @@ public static class ClaudeHooks
                         if (groups[g] is not System.Text.Json.Nodes.JsonObject group || group["hooks"] is not System.Text.Json.Nodes.JsonArray list)
                             continue;
                         for (int h = list.Count - 1; h >= 0; h--)
-                            if (list[h]?["command"]?.GetValue<string>() is { } command && command.EndsWith(Marker, StringComparison.Ordinal))
+                            if (list[h]?["command"]?.GetValue<string>() is { } command && command.EndsWith(marker, StringComparison.Ordinal))
                                 list.RemoveAt(h);
                         if (list.Count == 0)
                             groups.RemoveAt(g);
@@ -645,9 +844,7 @@ public static class ClaudeHooks
                     continue;
                 if (groups == null)
                     hooks[name] = groups = new System.Text.Json.Nodes.JsonArray();
-                var hook = new System.Text.Json.Nodes.JsonObject { ["type"] = "command", ["command"] = Command };
-                // Claude Code gives a session-end hook 1.5 s by default; a cold start can take longer.
-                hook["timeout"] = 10;
+                var hook = new System.Text.Json.Nodes.JsonObject { ["type"] = "command", ["command"] = Command(marker), ["timeout"] = timeout };
                 groups.Add(new System.Text.Json.Nodes.JsonObject { ["hooks"] = new System.Text.Json.Nodes.JsonArray(hook) });
             }
             if (!add && hooks.Count == 0)
@@ -659,8 +856,78 @@ public static class ClaudeHooks
         }
         catch (Exception ex)
         {
-            Log.Write($"Claude Code hooks could not be {(add ? "added" : "removed")}: {ex.Message}");
+            Log.Write($"{agent} hooks could not be {(add ? "added" : "removed")}: {ex.Message}");
             return ex.Message;
         }
+    }
+}
+
+/// <summary>
+/// Settings' one-click set-up for Claude Code: adds (or removes) hooks in ~/.claude/settings.json that call
+/// "shoji hook claude", so the Tasks tile knows the moment a session needs a permission or has finished.
+/// </summary>
+public static class ClaudeHooks
+{
+    // Claude Code gives a session-end hook 1.5 s by default; a cold start can take longer.
+    static readonly (string, int)[] Events = { ("UserPromptSubmit", 10), ("Notification", 10), ("Stop", 10), ("SessionEnd", 10) };
+    const string Marker = " hook claude";
+
+    public static string SettingsPath => Path.Combine(
+        Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } dir ? dir : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
+        "settings.json");
+
+    /// <summary>Claude Code has been used on this PC (its folder exists).</summary>
+    public static bool Installed => Directory.Exists(Path.GetDirectoryName(SettingsPath)!);
+
+    public static bool Connected => AgentHooks.Has(SettingsPath, Marker);
+
+    /// <summary>Adds the hooks (once). Returns null when it worked, else why not.</summary>
+    public static string? Connect() => AgentHooks.Edit(SettingsPath, "Claude Code", Marker, Events, add: true);
+
+    /// <summary>Takes Shoji's hooks out again, leaving everything else.</summary>
+    public static string? Disconnect() => AgentHooks.Edit(SettingsPath, "Claude Code", Marker, Events, add: false);
+}
+
+/// <summary>
+/// The same for Codex: hooks in ~/.codex/hooks.json that call "shoji hook codex". Codex asks once, in its own
+/// "/hooks" screen, whether hooks it hasn't seen before may run; until that is answered they are skipped.
+/// </summary>
+public static class CodexHooks
+{
+    // Codex ends a SessionEnd hook after three seconds at most.
+    static readonly (string, int)[] Events = { ("UserPromptSubmit", 10), ("PermissionRequest", 10), ("Stop", 10), ("SessionEnd", 3) };
+    const string Marker = " hook codex";
+
+    public static string Folder => Environment.GetEnvironmentVariable("CODEX_HOME") is { Length: > 0 } dir ? dir : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
+
+    public static string SettingsPath => Path.Combine(Folder, "hooks.json");
+
+    public static bool Installed => Directory.Exists(Folder);
+
+    static bool _connected;
+    static long _connectedAt = -100_000;
+
+    /// <summary>Asked every few seconds by the log reader, so the answer is kept for a moment.</summary>
+    public static bool Connected
+    {
+        get
+        {
+            if (Environment.TickCount64 - _connectedAt > 5000)
+            {
+                _connected = AgentHooks.Has(SettingsPath, Marker);
+                _connectedAt = Environment.TickCount64;
+            }
+            return _connected;
+        }
+    }
+
+    public static string? Connect() => Changed(AgentHooks.Edit(SettingsPath, "Codex", Marker, Events, add: true));
+
+    public static string? Disconnect() => Changed(AgentHooks.Edit(SettingsPath, "Codex", Marker, Events, add: false));
+
+    static string? Changed(string? result)
+    {
+        _connectedAt = -100_000;
+        return result;
     }
 }

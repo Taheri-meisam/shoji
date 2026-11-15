@@ -60,6 +60,13 @@ public static class Setups
             new("Focus", new[] { "timer", "agenda", "calendar", "media" }),
             new("Control", new[] { "deck:9", "mixer", "notifications", "websites" }),
         }),
+        new("ai", "AI workstation", "Coding agents and local models: who is working and who is waiting for you, the graphics card under the models, what the work costs, and a focus page", new SetupPage[]
+        {
+            new("Agents", new[] { "tasks:2", "localmodels", "aiusage", "gpu", "cpu", "memory", "status" }),
+            new("Models", new[] { "localmodels:2", "gpu", "temps", "history:2", "power", "memory" }),
+            new("Usage", new[] { "aiusage:2?Cost", "incidents:2", "github", "network", "taskmanager:2" }),
+            new("Focus", new[] { "timer", "agenda", "calendar", "media" }),
+        }),
         new("stream", "Streamer", "Going live: deck, chat and mixer in reach, the stream's health, your alerts and the music", new SetupPage[]
         {
             new("Live", new[] { "deck:2", "twitch", "mixer", "media", "status" }),

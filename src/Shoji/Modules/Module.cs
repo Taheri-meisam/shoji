@@ -159,6 +159,7 @@ public static class ModuleFactory
             case "incidents": return new IncidentsModule(config);
             case "tasks": return new TasksModule(config, host);
             case "powerprice": return new PowerPriceModule(config);
+            case "localmodels": return new LocalModelsModule(config);
             case "history": return new HistoryModule(config);
             case "deck": return new DeckModule(config, host, app.Obs);
             case "mixer": return new MixerModule(config);

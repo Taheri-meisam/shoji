@@ -118,6 +118,9 @@ public sealed class AppConfig
     /// <summary>A card on the dashboard two minutes before a calendar event starts, with a Join button when it has a meeting link.</summary>
     public bool MeetingReminder { get; set; } = true;
 
+    /// <summary>A card on the dashboard when a coding agent or task waits for you, and for a minute after one finished.</summary>
+    public bool TaskCard { get; set; } = true;
+
     [JsonIgnore]
     public bool Fahrenheit => TemperatureUnit.StartsWith("F", StringComparison.OrdinalIgnoreCase);
 

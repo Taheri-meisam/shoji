@@ -138,7 +138,7 @@ static class Icons
         ["timer"] = new("timer", TimeA, TimeB),
         ["deck"] = new("keyboard", CtrlA, CtrlB), ["homeassistant"] = new("home", CtrlA, CtrlB), ["mirror"] = new("cast", CtrlA, CtrlB),
         ["status"] = new("verified_user", InfoA, InfoB), ["recap"] = new("star", InfoA, InfoB), ["incidents"] = new("insights", HeatA, HeatB), ["tasks"] = new("check_circle", InfoA, InfoB), ["powerprice"] = new("bolt", TimeA, TimeB), ["activity"] = new("insights", InfoA, InfoB),
-        ["battery"] = new("battery_full", InfoA, InfoB), ["disks"] = new("storage", InfoA, InfoB), ["drivehealth"] = new("favorite", InfoA, InfoB), ["aiusage"] = new("smart_toy", InfoA, InfoB), ["github"] = new("code", InfoA, InfoB),
+        ["battery"] = new("battery_full", InfoA, InfoB), ["disks"] = new("storage", InfoA, InfoB), ["drivehealth"] = new("favorite", InfoA, InfoB), ["aiusage"] = new("smart_toy", InfoA, InfoB), ["localmodels"] = new("memory", InfoA, InfoB), ["github"] = new("code", InfoA, InfoB),
         ["ticker"] = new("trending_up", InfoA, InfoB), ["system"] = new("computer", InfoA, InfoB),
         ["photos"] = new("photo_library", MediaA, MediaB),
     };

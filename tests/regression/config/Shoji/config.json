@@ -439,6 +439,31 @@
           "Options": {}
         }
       ]
+    },
+    {
+      "Name": "AI",
+      "Modules": [
+        {
+          "Type": "localmodels",
+          "Enabled": true,
+          "Span": 2,
+          "Options": {}
+        },
+        {
+          "Type": "aiusage",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {
+            "Cost": "true"
+          }
+        },
+        {
+          "Type": "gpu",
+          "Enabled": true,
+          "Span": 1,
+          "Options": {}
+        }
+      ]
     }
   ],
   "PageCycleSeconds": 0,

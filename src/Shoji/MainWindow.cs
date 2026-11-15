@@ -135,6 +135,7 @@ public sealed class MainWindow : Window, IDashboardHost
         layers.Children.Add(_edgeRight);
         layers.Children.Add(_corner);
         layers.Children.Add(_meeting);
+        layers.Children.Add(_taskCard);
         layers.Children.Add(_alert);
         layers.Children.Add(_toast);
         // The tile edit sheet (long press on a tile) sits above the tiles and below the night-mode dimmer.
@@ -196,6 +197,7 @@ public sealed class MainWindow : Window, IDashboardHost
         BuildEdge(_edgeRight, "\u203A", +1);
         BuildCorner();
         BuildMeeting();
+        BuildTaskCard();
     }
 
     public Collector? Collector => _collector;
@@ -270,6 +272,8 @@ public sealed class MainWindow : Window, IDashboardHost
                 .Where(m => m != null).Select(m => m!).ToList())).ToList();
         // Asked for inside the build, so the calendar poller counts as in use even when no tile shows a calendar.
         _meetings = _config.MeetingReminder ? CalendarFeeds.Service(CalendarFeeds.For(null, _config)) : null;
+        TaskCard.Enabled = _config.TaskCard;
+        _tasks = TaskCard.Enabled ? ServiceStore.Get(TaskWatch.Key, ToolKit.NewWatch) : null;
         ServiceStore.EndBuild(); // frees helpers (chat connections, pollers…) no tile uses any more
         _pages = new List<Page>();
         Arrange(keepConfigPage: showing);
@@ -319,6 +323,7 @@ public sealed class MainWindow : Window, IDashboardHost
 
         UpdateModules(s);
         UpdateMeeting(s.Time);
+        UpdateTaskCard(s.Time);
         UpdateCover();
 
         if (_scenes.Update(_config, s))
@@ -960,6 +965,79 @@ public sealed class MainWindow : Window, IDashboardHost
         _meeting.Visibility = Visibility.Visible;
     }
 
+
+    // ---------------------------------------------------------------- task card
+
+    // When a coding agent waits for a permission or an answer a card comes up at the top, on whichever page is
+    // showing, and stays until it is answered (in the terminal) or tapped away. Something that finished or failed
+    // shows for a minute. Settings → Hardware → Tasks & agents switches it off.
+    TaskWatch? _tasks;
+    readonly Border _taskCard = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Cursor = Cursors.Hand };
+    readonly TextBlock _taskTitle = new() { FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis }, _taskDetail = new() { TextTrimming = TextTrimming.CharacterEllipsis };
+    readonly TextBlock _taskIcon = new() { VerticalAlignment = VerticalAlignment.Center }, _taskClose = new() { Text = "\uE8BB", VerticalAlignment = VerticalAlignment.Center };
+    readonly HashSet<string> _taskDismissed = new();
+    string? _taskKey;
+
+    void BuildTaskCard()
+    {
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { _taskTitle, _taskDetail } };
+        _taskCard.Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { _taskIcon, text, _taskClose } };
+        Tap.On(_taskCard, () =>
+        {
+            if (_taskKey != null)
+                _taskDismissed.Add(_taskKey);
+            _taskCard.Visibility = Visibility.Collapsed;
+        });
+    }
+
+    void UpdateTaskCard(DateTime now)
+    {
+        var utc = now.ToUniversalTime();
+        var item = _tasks == null || _nightDimmed || _editor.IsOpen ? null : TaskCard.Pick(_tasks.State, utc, _taskDismissed);
+        if (item == null)
+        {
+            _taskCard.Visibility = Visibility.Collapsed;
+            if (_taskDismissed.Count > 100)
+                _taskDismissed.Clear();
+            return;
+        }
+        string key = TaskCard.Key(item);
+        double top = (_alert.Visibility == Visibility.Visible ? 64 : 14) + (_meeting.Visibility == Visibility.Visible ? _meeting.ActualHeight + 10 : 0);
+        if (_taskCard.Visibility != Visibility.Visible || key != _taskKey)
+        {
+            // Same size and shape as the meeting card; the edge says which kind: amber waits, green finished, red failed.
+            double size = Math.Round(Math.Clamp(Math.Min(ActualWidth, ActualHeight) / 34, 14, 28));
+            bool square = Theme.Current.Shape is TileShape.Hud or TileShape.Chamfer;
+            var color = item.State switch { "waiting" => Theme.Warn, "failed" => Theme.Crit, _ => Theme.Good };
+            _taskCard.Padding = new Thickness(size, size * 0.6, size * 0.8, size * 0.6);
+            _taskCard.CornerRadius = new CornerRadius(square ? 0 : size * 0.8);
+            _taskCard.Background = Theme.Tile;
+            _taskCard.BorderBrush = color;
+            _taskCard.BorderThickness = new Thickness(1.5);
+            _taskIcon.FontFamily = _taskClose.FontFamily = ToolKit.IconFont;
+            _taskIcon.Text = item.State switch { "waiting" => ToolKit.Waiting, "failed" => ToolKit.Failed, _ => ToolKit.Ok };
+            _taskIcon.FontSize = size * 1.4;
+            _taskIcon.Foreground = color;
+            _taskIcon.Margin = new Thickness(0, 0, size * 0.7, 0);
+            _taskTitle.FontFamily = _taskDetail.FontFamily = Theme.Font;
+            _taskTitle.FontSize = size * 1.15;
+            _taskTitle.Foreground = Theme.Text;
+            _taskDetail.FontSize = size * 0.9;
+            _taskDetail.Foreground = item.State == "waiting" ? color : Theme.Dim;
+            _taskTitle.MaxWidth = _taskDetail.MaxWidth = Math.Max(160, ActualWidth * 0.62);
+            _taskClose.FontSize = size * 0.8;
+            _taskClose.Foreground = Theme.Dim;
+            _taskClose.Margin = new Thickness(size * 0.9, 0, 0, 0);
+            _taskCard.ToolTip = L.T("Dismiss");
+            _taskTitle.Text = TaskCard.Title(item);
+        }
+        _taskKey = key;
+        _taskCard.Margin = new Thickness(16, top, 16, 0);
+        string detail = TaskCard.Detail(item, utc);
+        _taskDetail.Text = detail;
+        _taskDetail.Visibility = detail.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _taskCard.Visibility = Visibility.Visible;
+    }
     // ---------------------------------------------------------------- overlays
 
     void StyleOverlays()

@@ -97,7 +97,14 @@ public static class ModuleCatalog
             Options: new[] { new OptionSpec("Host", "Host", "default 1.1.1.1") }) { Styles = new (string, string)[] { ("classic", "Classic"), ("scope", "Oscilloscope"), ("segments", "LED digits") } },
         new("disks", "Drives", "記憶装置", "Free space per drive, read / write speed"),
         new("drivehealth", "Drive health", "健康", "Is a drive wearing out or failing? Each drive's own verdict (SMART), wear, running time and temperature"),
-        new("aiusage", "AI usage", "人工知能", "How much Claude Code and Codex were used on this PC: tokens in the last 5 and 24 hours, per model and per hour, and Codex's limits. Read from their own logs; nothing is sent anywhere"),
+        new("aiusage", "AI usage", "人工知能", "How much Claude Code and Codex were used on this PC: tokens in the last 5 and 24 hours, per model and per hour, and Codex's limits. Read from their own logs; nothing is sent anywhere", 1, new[]
+        {
+            new OptionSpec("Cost", "Show cost", "What the same work would cost at the providers' list prices (US dollars): today and the last 7 days, per tool and model. An estimate; on a subscription you pay a flat fee instead", OptionKind.Bool),
+        }),
+        new("localmodels", "Local models", "模型", "The AI models running on this PC: what Ollama, LM Studio or a llama.cpp server has in memory, how much of it sits on the graphics card, when it unloads, and what else is on disk. Only asks the server on this PC; nothing is sent anywhere", 1, new[]
+        {
+            new OptionSpec("Server", "Server address", "empty = Ollama on this PC; LM Studio is localhost:1234, llama.cpp localhost:8080"),
+        }),
         new("processes", "Top processes", "プロセス", "Busiest apps by CPU, with RAM") { Styles = new (string, string)[] { ("classic", "List"), ("radar", "Radar") } },
         new("taskmanager", "Task manager", "タスク", "Live stream graph of the apps using your CPU, memory and disk, with a ranked list and sparklines; tap to switch view", 2, new[]
         {

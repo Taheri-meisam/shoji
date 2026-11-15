@@ -279,13 +279,23 @@ public sealed class AiUsageModule : Module
     readonly TextBlock _five, _day, _note;
     readonly RowList _limits = new(withBar: true), _rows = new();
     readonly HourBars _bars = new() { MinHeight = 22, Margin = new Thickness(0, 6, 0, 0) };
+    readonly bool _cost;
     AiUsage? _shown;
     DateTime _shownAt;
 
     public AiUsageModule(ModuleConfig config) : base(config, "AI usage")
     {
         _note = W.Text(L.T("Reading the logs…"), Theme.Small, Theme.Dim);
-        var stats = W.Columns(W.Stat("tokens, last 5 hours", out _five), W.Stat("last 24 hours", out _day));
+        // With "Show cost" the two big numbers are money (today, the last 7 days); the tokens move into the rows.
+        _cost = config.OptBool("Cost");
+        if (_cost && !AiUsageService.TrackCost)
+        {
+            // Another tile may have started the reading already, without money: have it read again now.
+            AiUsageService.TrackCost = true;
+            _service.Refresh();
+        }
+        var stats = _cost ? W.Columns(W.Stat("today, at list prices", out _five), W.Stat("last 7 days", out _day))
+            : W.Columns(W.Stat("tokens, last 5 hours", out _five), W.Stat("last 24 hours", out _day));
         _five.Text = _day.Text = "–";
         _limits.Margin = new Thickness(0, 5, 0, 0);
         View = MakeTile(Body(_bars.ShowFrom(Density.Normal), stats, _limits, _rows.ShowFrom(Density.Normal)), _note);
@@ -304,9 +314,9 @@ public sealed class AiUsageModule : Module
             _note.Text = L.T("No Claude Code or Codex on this PC");
             return;
         }
-        _five.Text = AiUsageText.Tokens(u.Tokens5h);
-        _day.Text = AiUsageText.Tokens(u.Tokens24h);
-        _note.Text = "5 h · 24 h";
+        _five.Text = _cost ? u.Cost == null ? "–" : AiPrices.Money(u.Cost.Today) : AiUsageText.Tokens(u.Tokens5h);
+        _day.Text = _cost ? u.Cost == null ? "–" : AiPrices.Money(u.Cost.Week) : AiUsageText.Tokens(u.Tokens24h);
+        _note.Text = _cost ? L.T("today · 7 days") : "5 h · 24 h";
 
         var now = s.Time.ToUniversalTime();
         for (int i = 0; i < u.Limits.Count; i++)
@@ -318,6 +328,18 @@ public sealed class AiUsageModule : Module
         _limits.Trim(u.Limits.Count);
 
         int row = 0;
+        if (_cost)
+        {
+            foreach (var line in (u.Cost?.Tools ?? Array.Empty<AiCostLine>()).Concat((u.Cost?.Models ?? Array.Empty<AiCostLine>()).Take(4)))
+                _rows.Set(row++, line.Name, $"{AiPrices.Money(line.Today)} · {AiPrices.Money(line.Week)}");
+            _rows.Set(row++, L.T("Tokens, 5 h · 24 h"), $"{AiUsageText.Tokens(u.Tokens5h)} · {AiUsageText.Tokens(u.Tokens24h)}");
+            if (u.Cost?.Partial == true)
+                _rows.Set(row++, L.T("Some models have no known price"), "");
+            _rows.Trim(row);
+            _bars.Data = u.Hourly;
+            _bars.InvalidateVisual();
+            return;
+        }
         _rows.Set(row++, L.T("Answers"), $"{u.Messages5h.ToString(L.Culture)} · {u.Messages24h.ToString(L.Culture)}");
         _rows.Set(row++, L.T("Written"), $"{AiUsageText.Tokens(u.Output5h)} · {AiUsageText.Tokens(u.Output24h)}");
         foreach (var m in u.Models.Take(4))

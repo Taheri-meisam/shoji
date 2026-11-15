@@ -106,7 +106,7 @@ public static class TileLayout
             "temps" => classic ? 0.95 : style == "segments" ? 0.9 : 1.1,
             "network" => classic ? 1.0 : 1.15,
             "calendar" or "notifications" or "lyrics" => 1.15,
-            "forecast" or "history" or "deck" or "mixer" or "aiusage" or "homeassistant" => 1.1,
+            "forecast" or "history" or "deck" or "mixer" or "aiusage" or "localmodels" or "homeassistant" => 1.1,
             "status" => 1.05,
             "recap" => 1.05,
             "clock" => classic ? 0.9 : 1.0,
